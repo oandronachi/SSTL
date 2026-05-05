@@ -1,0 +1,796 @@
+apis:
+  - api_id: cpp.public_headers
+    family: compile
+    language: cpp03
+  - api_id: cpp.public_headers.tracked
+    family: compile
+    language: cpp03
+  - api_id: cpp.owning.try_capacity
+    family: compile
+    language: cpp03
+  - api_id: c.public_headers
+    family: compile
+    language: c99
+  - api_id: c.owning.try_capacity
+    family: compile
+    language: c99
+  - api_id: c.hooks.void_callbacks
+    family: compile
+    language: c99
+  - api_id: cpp.vector.push_back
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.try_at
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.try_front
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.try_back
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.try_push_back
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.try_pop_back
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.try_insert
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.at
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.pop_back
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.erase
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.insert
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.swap
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.comparison
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.resize
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.assign
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.begin
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.data
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.cross_capacity
+    family: vector
+    language: cpp03
+  - api_id: cpp.vector.factories
+    family: vector
+    language: cpp03
+  - api_id: cpp.string.push_back
+    family: string
+    language: cpp03
+  - api_id: cpp.string.pop_back
+    family: string
+    language: cpp03
+  - api_id: cpp.string.resize
+    family: string
+    language: cpp03
+  - api_id: cpp.string.swap
+    family: string
+    language: cpp03
+  - api_id: cpp.string.append_n
+    family: string
+    language: cpp03
+  - api_id: cpp.string.assign
+    family: string
+    language: cpp03
+  - api_id: cpp.string.insert
+    family: string
+    language: cpp03
+  - api_id: cpp.string.erase
+    family: string
+    language: cpp03
+  - api_id: cpp.string.replace
+    family: string
+    language: cpp03
+  - api_id: cpp.string.operator_plus_equal
+    family: string
+    language: cpp03
+  - api_id: cpp.string.find
+    family: string
+    language: cpp03
+  - api_id: cpp.string.rfind
+    family: string
+    language: cpp03
+  - api_id: cpp.string.compare
+    family: string
+    language: cpp03
+  - api_id: cpp.string.ordering
+    family: string
+    language: cpp03
+  - api_id: cpp.string.try_front
+    family: string
+    language: cpp03
+  - api_id: cpp.string.try_back
+    family: string
+    language: cpp03
+  - api_id: cpp.string.find_first_of
+    family: string
+    language: cpp03
+  - api_id: cpp.string.find_first_not_of
+    family: string
+    language: cpp03
+  - api_id: cpp.string.find_last_of
+    family: string
+    language: cpp03
+  - api_id: cpp.string.find_last_not_of
+    family: string
+    language: cpp03
+  - api_id: cpp.map.erase
+    family: map
+    language: cpp03
+  - api_id: cpp.list.insert
+    family: list
+    language: cpp03
+  - api_id: cpp.list.erase
+    family: list
+    language: cpp03
+  - api_id: cpp.list.merge
+    family: list
+    language: cpp03
+  - api_id: cpp.list.splice
+    family: list
+    language: cpp03
+  - api_id: cpp.list.try_merge
+    family: list
+    language: cpp03
+  - api_id: cpp.list.try_splice
+    family: list
+    language: cpp03
+  - api_id: cpp.list.try_front
+    family: list
+    language: cpp03
+  - api_id: cpp.list.try_back
+    family: list
+    language: cpp03
+  - api_id: cpp.list.splice.same_container
+    family: list
+    language: cpp03
+  - api_id: cpp.forward_list.splice_after
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.try_splice_after
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.try_merge
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.front
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.try_front
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.push_front
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.pop_front
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.try_pop_front
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.insert_after
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.erase_after
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.remove
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.remove_if
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.unique
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.sort
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.forward_list.merge
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.algorithm.sort
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.count
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.copy
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.reverse
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.set_union
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.accumulate
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.find_if
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.all_of
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.any_of
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.none_of
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.equal
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.mismatch
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.search
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.lexicographical_compare
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.min_element
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.max_element
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.copy_backward
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.fill
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.transform
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.replace
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.remove
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.rotate
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.unique
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.comparator_overloads
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.heap
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.partition
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.set_intersection
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.equal_range
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.inner_product
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.partial_sum
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.adjacent_difference
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.iota
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.find_if_not
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.count_if
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.copy_n
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.copy_if
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.replace_if
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.remove_if
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.fill_n
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.swap_ranges
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.iter_swap
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.stable_sort
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.partial_sort
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.nth_element
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.is_sorted
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.is_sorted_until
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.push_heap
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.sort_heap
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.stable_partition
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.merge
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.includes
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.set_difference
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.set_symmetric_difference
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.upper_bound
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.algorithm.minmax_element
+    family: algorithm
+    language: cpp03
+  - api_id: cpp.string_view.ctors
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.find
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.rfind
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.find_first_of
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.find_first_not_of
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.find_last_of
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.find_last_not_of
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.compare
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.starts_with
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.ends_with
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.remove_prefix
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.remove_suffix
+    family: string_view
+    language: cpp03
+  - api_id: cpp.string_view.contract
+    family: string_view
+    language: cpp03
+  - api_id: cpp.policy.return
+    family: policy
+    language: cpp03
+  - api_id: cpp.policy.panic
+    family: policy
+    language: cpp03
+  - api_id: cpp.policy.ub
+    family: policy
+    language: cpp03
+  - api_id: cpp.policy.default
+    family: policy
+    language: cpp03
+  - api_id: cpp.string.policy_capacity
+    family: string
+    language: cpp03
+  - api_id: cpp.deque.policy_capacity
+    family: deque
+    language: cpp03
+  - api_id: cpp.list.policy_capacity
+    family: list
+    language: cpp03
+  - api_id: cpp.forward_list.policy_capacity
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.map.policy_capacity
+    family: map
+    language: cpp03
+  - api_id: cpp.set.policy_capacity
+    family: set
+    language: cpp03
+  - api_id: cpp.flat_map.policy_capacity
+    family: flat_map
+    language: cpp03
+  - api_id: cpp.unordered_map.policy_capacity
+    family: unordered_map
+    language: cpp03
+  - api_id: c.policy.return
+    family: policy
+    language: c99
+  - api_id: c.policy.panic
+    family: policy
+    language: c99
+  - api_id: c.policy.ub
+    family: policy
+    language: c99
+  - api_id: c.policy.default
+    family: policy
+    language: c99
+  - api_id: c.string.policy_capacity
+    family: string
+    language: c99
+  - api_id: c.string.try_at
+    family: string
+    language: c99
+  - api_id: c.string.at
+    family: string
+    language: c99
+  - api_id: cpp.deque.lifetime
+    family: deque
+    language: cpp03
+  - api_id: cpp.list.lifetime
+    family: list
+    language: cpp03
+  - api_id: cpp.forward_list.lifetime
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.optional.lifetime
+    family: optional
+    language: cpp03
+  - api_id: cpp.variant.lifetime
+    family: variant
+    language: cpp03
+  - api_id: c.vector.layout
+    family: vector
+    language: c99
+  - api_id: c.string.layout
+    family: string
+    language: c99
+  - api_id: cpp.array.contract
+    family: array
+    language: cpp03
+  - api_id: cpp.array.comparison
+    family: array
+    language: cpp03
+  - api_id: cpp.span.contract
+    family: span
+    language: cpp03
+  - api_id: cpp.deque.contract
+    family: deque
+    language: cpp03
+  - api_id: cpp.deque.swap
+    family: deque
+    language: cpp03
+  - api_id: cpp.list.contract
+    family: list
+    language: cpp03
+  - api_id: cpp.forward_list.contract
+    family: forward_list
+    language: cpp03
+  - api_id: cpp.map.contract
+    family: map
+    language: cpp03
+  - api_id: cpp.set.contract
+    family: set
+    language: cpp03
+  - api_id: cpp.set.erase
+    family: set
+    language: cpp03
+  - api_id: cpp.flat_map.contract
+    family: flat_map
+    language: cpp03
+  - api_id: cpp.flat_map.erase
+    family: flat_map
+    language: cpp03
+  - api_id: cpp.flat_map.bounds
+    family: flat_map
+    language: cpp03
+  - api_id: cpp.flat_set.contract
+    family: flat_set
+    language: cpp03
+  - api_id: cpp.flat_set.erase
+    family: flat_set
+    language: cpp03
+  - api_id: cpp.unordered_map.contract
+    family: unordered_map
+    language: cpp03
+  - api_id: cpp.unordered_map.erase
+    family: unordered_map
+    language: cpp03
+  - api_id: cpp.unordered_map.subscript
+    family: unordered_map
+    language: cpp03
+  - api_id: cpp.unordered_set.contract
+    family: unordered_set
+    language: cpp03
+  - api_id: cpp.unordered_set.erase
+    family: unordered_set
+    language: cpp03
+  - api_id: cpp.bitset.contract
+    family: bitset
+    language: cpp03
+  - api_id: cpp.optional.contract
+    family: optional
+    language: cpp03
+  - api_id: cpp.variant.contract
+    family: variant
+    language: cpp03
+  - api_id: cpp.function.contract
+    family: function
+    language: cpp03
+  - api_id: cpp.functional.contract
+    family: functional
+    language: cpp03
+  - api_id: cpp.numeric.contract
+    family: numeric
+    language: cpp03
+  - api_id: cpp.iterator.contract
+    family: iterator
+    language: cpp03
+  - api_id: cpp.utility.non_member_hooks
+    family: utility
+    language: cpp03
+  - api_id: cpp.lifetime.shims
+    family: config
+    language: cpp03
+  - api_id: cpp.vector.cross_capacity.sfinae
+    family: vector
+    language: cpp03
+  - api_id: cpp.priority_queue.contract
+    family: priority_queue
+    language: cpp03
+  - api_id: cpp.stack.contract
+    family: stack
+    language: cpp03
+  - api_id: cpp.queue.contract
+    family: queue
+    language: cpp03
+  - api_id: cpp.algorithm.contract
+    family: algorithm
+    language: cpp03
+  - api_id: c.array.contract
+    family: array
+    language: c99
+  - api_id: c.array.cmp
+    family: array
+    language: c99
+  - api_id: c.span.contract
+    family: span
+    language: c99
+  - api_id: c.deque.contract
+    family: deque
+    language: c99
+  - api_id: c.list.contract
+    family: list
+    language: c99
+  - api_id: c.forward_list.contract
+    family: forward_list
+    language: c99
+  - api_id: c.map.contract
+    family: map
+    language: c99
+  - api_id: c.set.contract
+    family: set
+    language: c99
+  - api_id: c.set.erase
+    family: set
+    language: c99
+  - api_id: c.flat_map.contract
+    family: flat_map
+    language: c99
+  - api_id: c.flat_set.contract
+    family: flat_set
+    language: c99
+  - api_id: c.unordered_map.contract
+    family: unordered_map
+    language: c99
+  - api_id: c.unordered_set.contract
+    family: unordered_set
+    language: c99
+  - api_id: c.bitset.contract
+    family: bitset
+    language: c99
+  - api_id: c.optional.contract
+    family: optional
+    language: c99
+  - api_id: c.variant.contract
+    family: variant
+    language: c99
+  - api_id: c.function.contract
+    family: function
+    language: c99
+  - api_id: c.priority_queue.contract
+    family: priority_queue
+    language: c99
+  - api_id: c.stack.contract
+    family: stack
+    language: c99
+  - api_id: c.queue.contract
+    family: queue
+    language: c99
+  - api_id: c.algorithm.contract
+    family: algorithm
+    language: c99
+  - api_id: c.vector.push_back
+    family: vector
+    language: c99
+  - api_id: c.vector.try_at
+    family: vector
+    language: c99
+  - api_id: c.vector.try_push_back
+    family: vector
+    language: c99
+  - api_id: c.vector.try_pop_back
+    family: vector
+    language: c99
+  - api_id: c.vector.at
+    family: vector
+    language: c99
+  - api_id: c.vector.pop_back
+    family: vector
+    language: c99
+  - api_id: c.vector.resize
+    family: vector
+    language: c99
+  - api_id: c.vector.insert
+    family: vector
+    language: c99
+  - api_id: c.vector.erase
+    family: vector
+    language: c99
+  - api_id: c.string.push_back
+    family: string
+    language: c99
+  - api_id: c.string.pop_back
+    family: string
+    language: c99
+  - api_id: c.string.resize
+    family: string
+    language: c99
+  - api_id: c.string.swap
+    family: string
+    language: c99
+  - api_id: c.string.append_n
+    family: string
+    language: c99
+  - api_id: c.string.assign
+    family: string
+    language: c99
+  - api_id: c.string.insert
+    family: string
+    language: c99
+  - api_id: c.string.erase
+    family: string
+    language: c99
+  - api_id: c.string.replace
+    family: string
+    language: c99
+  - api_id: c.string_view.contract
+    family: string_view
+    language: c99
+  - api_id: c.map.erase
+    family: map
+    language: c99
+  - api_id: c.list.insert
+    family: list
+    language: c99
+  - api_id: c.list.pop_back
+    family: list
+    language: c99
+  - api_id: c.list.erase
+    family: list
+    language: c99
+  - api_id: c.list.remove
+    family: list
+    language: c99
+  - api_id: c.list.remove_if
+    family: list
+    language: c99
+  - api_id: c.list.unique
+    family: list
+    language: c99
+  - api_id: c.list.sort
+    family: list
+    language: c99
+  - api_id: c.list.merge
+    family: list
+    language: c99
+  - api_id: c.forward_list.before_begin
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.insert_after
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.erase_after
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.splice_after
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.remove
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.remove_if
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.unique
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.sort
+    family: forward_list
+    language: c99
+  - api_id: c.forward_list.merge
+    family: forward_list
+    language: c99
+  - api_id: c.flat_map.lower_bound
+    family: flat_map
+    language: c99
+  - api_id: c.flat_set.lower_bound
+    family: flat_set
+    language: c99
+  - api_id: c.unordered_map.bucket_count
+    family: unordered_map
+    language: c99
+  - api_id: c.unordered_set.bucket_count
+    family: unordered_set
+    language: c99
+  - api_id: cpp.vector.parity
+    family: parity
+    language: cpp03
+  - api_id: c.vector.parity
+    family: parity
+    language: c99
+  - api_id: cpp.freestanding.compile
+    family: freestanding
+    language: cpp03
+  - api_id: c.freestanding.compile
+    family: freestanding
+    language: c99
+  - api_id: package.docs.integrity
+    family: documentation
+    language: package

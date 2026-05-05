@@ -1,0 +1,25 @@
+requirements:
+  - req_id: REQ-01
+    description: Support C99 and C++03 primary profiles.
+  - req_id: REQ-02
+    description: Static allocation only; no heap in mandatory SSTL lanes.
+  - req_id: REQ-03
+    description: Owning containers expose and enforce fixed compile-time capacities.
+  - req_id: REQ-04
+    description: Error behavior is controlled by SSTL_ON_ERROR and try-style APIs.
+  - req_id: REQ-05
+    description: Preserve STL mental model where static design permits.
+  - req_id: REQ-06
+    description: Documented deviations are explicit and test-covered.
+  - req_id: REQ-07
+    description: C and C++ public entry points have parity for mirrored scenarios.
+  - req_id: REQ-08
+    description: Specification and package documentation render and link cleanly.
+  - req_id: REQ-09
+    description: Reserved non-normative slot kept to preserve stakeholder numbering; no v1.0 test trace is required.
+    status: reserved_non_normative
+    trace_required: false
+  - req_id: REQ-RUNTIME-COMPARISON
+    description: Mirrored C SSTL, C++ SSTL, and STL interfaces expose visible side-by-side runtime and memory-footprint measurements.
+  - req_id: REQ-10
+    description: Every requirement traces to at least one test.

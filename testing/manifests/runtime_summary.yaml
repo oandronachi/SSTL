@@ -1,0 +1,628 @@
+generated_at_utc: 2026-05-05T15:11:29.897888+00:00
+source: "testing/build/host-debug/sstl_runtime_interface_comparison.csv"
+status: pass
+group_count: 22
+row_count: 66
+notes:
+  - memory_diff_percent uses the first row in each comparison group as the baseline denominator.
+  - Very large memory percentages are expected when a tiny view object is compared with a heap-backed STL proxy row.
+families:
+  - family: "c-sstl"
+    cases: 22
+    cpu_seconds: 0.289082000
+    avg_cpu_seconds: 0.013140091
+    total_bytes: 26941144
+    max_bytes: 8388624
+    avg_cpu_diff_percent: 0.000000
+    avg_memory_diff_percent: 0.000000
+  - family: "cpp-sstl"
+    cases: 22
+    cpu_seconds: 0.345340000
+    avg_cpu_seconds: 0.015697273
+    total_bytes: 26944184
+    max_bytes: 8388632
+    avg_cpu_diff_percent: 21.745926
+    avg_memory_diff_percent: 17.888047
+  - family: "stl"
+    cases: 22
+    cpu_seconds: 0.431145000
+    avg_cpu_seconds: 0.019597500
+    total_bytes: 34672382
+    max_bytes: 8716864
+    avg_cpu_diff_percent: 92.970414
+    avg_memory_diff_percent: 297916.267846
+rows:
+  - group: "array indexed access comparison"
+    interface: "c-sstl"
+    object_bytes: 2097152
+    storage_bytes: 0
+    total_bytes: 2097152
+    cpu_seconds: 0.012600000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "43282538187990"
+  - group: "array indexed access comparison"
+    interface: "cpp-sstl"
+    object_bytes: 2097152
+    storage_bytes: 0
+    total_bytes: 2097152
+    cpu_seconds: 0.013884000
+    cpu_diff_percent: 10.190476
+    memory_diff_percent: 0.000000
+    checksum: "43282538187990"
+  - group: "array indexed access comparison"
+    interface: "stl-proxy"
+    object_bytes: 16
+    storage_bytes: 2097152
+    total_bytes: 2097168
+    cpu_seconds: 0.010776000
+    cpu_diff_percent: -14.476190
+    memory_diff_percent: 0.000763
+    checksum: "43282538187990"
+  - group: "span view access comparison"
+    interface: "c-sstl"
+    object_bytes: 16
+    storage_bytes: 0
+    total_bytes: 16
+    cpu_seconds: 0.000176000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "51174005450280"
+  - group: "span view access comparison"
+    interface: "cpp-sstl"
+    object_bytes: 16
+    storage_bytes: 0
+    total_bytes: 16
+    cpu_seconds: 0.000145000
+    cpu_diff_percent: -17.613636
+    memory_diff_percent: 0.000000
+    checksum: "51174005450280"
+  - group: "span view access comparison"
+    interface: "stl-proxy"
+    object_bytes: 16
+    storage_bytes: 0
+    total_bytes: 16
+    cpu_seconds: 0.000091000
+    cpu_diff_percent: -48.295455
+    memory_diff_percent: 0.000000
+    checksum: "51174005450280"
+  - group: "vector push/read/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 8388616
+    storage_bytes: 0
+    total_bytes: 8388616
+    cpu_seconds: 0.052982000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "1258387930857030"
+  - group: "vector push/read/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 8388616
+    storage_bytes: 0
+    total_bytes: 8388616
+    cpu_seconds: 0.047885000
+    cpu_diff_percent: -9.620248
+    memory_diff_percent: 0.000000
+    checksum: "1258387930857030"
+  - group: "vector push/read/pop comparison"
+    interface: "stl"
+    object_bytes: 24
+    storage_bytes: 8388608
+    total_bytes: 8388632
+    cpu_seconds: 0.054274000
+    cpu_diff_percent: 2.438564
+    memory_diff_percent: 0.000191
+    checksum: "1258387930857030"
+  - group: "string append/read comparison"
+    interface: "c-sstl"
+    object_bytes: 1048592
+    storage_bytes: 0
+    total_bytes: 1048592
+    cpu_seconds: 0.011337000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "19010092"
+  - group: "string append/read comparison"
+    interface: "cpp-sstl"
+    object_bytes: 1048592
+    storage_bytes: 0
+    total_bytes: 1048592
+    cpu_seconds: 0.013214000
+    cpu_diff_percent: 16.556408
+    memory_diff_percent: 0.000000
+    checksum: "19010092"
+  - group: "string append/read comparison"
+    interface: "stl"
+    object_bytes: 32
+    storage_bytes: 1048577
+    total_bytes: 1048609
+    cpu_seconds: 0.055702000
+    cpu_diff_percent: 391.329276
+    memory_diff_percent: 0.001621
+    checksum: "19010092"
+  - group: "string_view find/trim/read comparison"
+    interface: "c-sstl"
+    object_bytes: 16
+    storage_bytes: 0
+    total_bytes: 16
+    cpu_seconds: 0.000091000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "10176106"
+  - group: "string_view find/trim/read comparison"
+    interface: "cpp-sstl"
+    object_bytes: 16
+    storage_bytes: 0
+    total_bytes: 16
+    cpu_seconds: 0.000075000
+    cpu_diff_percent: -17.582418
+    memory_diff_percent: 0.000000
+    checksum: "10176106"
+  - group: "string_view find/trim/read comparison"
+    interface: "stl-proxy"
+    object_bytes: 32
+    storage_bytes: 1048577
+    total_bytes: 1048609
+    cpu_seconds: 0.000385000
+    cpu_diff_percent: 323.076923
+    memory_diff_percent: 6553706.250000
+    checksum: "10176106"
+  - group: "deque push/read/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 8388624
+    storage_bytes: 0
+    total_bytes: 8388624
+    cpu_seconds: 0.052052000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "1244484691243144"
+  - group: "deque push/read/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 8388632
+    storage_bytes: 0
+    total_bytes: 8388632
+    cpu_seconds: 0.057187000
+    cpu_diff_percent: 9.865135
+    memory_diff_percent: 0.000095
+    checksum: "1244484691243144"
+  - group: "deque push/read/pop comparison"
+    interface: "stl"
+    object_bytes: 80
+    storage_bytes: 8716784
+    total_bytes: 8716864
+    cpu_seconds: 0.062987000
+    cpu_diff_percent: 21.007838
+    memory_diff_percent: 3.912918
+    checksum: "1244484691243144"
+  - group: "list node traversal/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 229408
+    storage_bytes: 0
+    total_bytes: 229408
+    cpu_seconds: 0.001118000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "70379500878840"
+  - group: "list node traversal/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 229408
+    storage_bytes: 0
+    total_bytes: 229408
+    cpu_seconds: 0.001403000
+    cpu_diff_percent: 25.491950
+    memory_diff_percent: 0.000000
+    checksum: "70379500878840"
+  - group: "list node traversal/pop comparison"
+    interface: "stl"
+    object_bytes: 24
+    storage_bytes: 196608
+    total_bytes: 196632
+    cpu_seconds: 0.001549000
+    cpu_diff_percent: 38.550984
+    memory_diff_percent: -14.287209
+    checksum: "70379500878840"
+  - group: "forward_list node traversal/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 196632
+    storage_bytes: 0
+    total_bytes: 196632
+    cpu_seconds: 0.001243000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "70379500878840"
+  - group: "forward_list node traversal/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 196632
+    storage_bytes: 0
+    total_bytes: 196632
+    cpu_seconds: 0.001372000
+    cpu_diff_percent: 10.378117
+    memory_diff_percent: 0.000000
+    checksum: "70379500878840"
+  - group: "forward_list node traversal/pop comparison"
+    interface: "stl-proxy"
+    object_bytes: 24
+    storage_bytes: 196608
+    total_bytes: 196632
+    cpu_seconds: 0.001968000
+    cpu_diff_percent: 58.326629
+    memory_diff_percent: 0.000000
+    checksum: "70379500878840"
+  - group: "map insert/find comparison"
+    interface: "c-sstl"
+    object_bytes: 10768
+    storage_bytes: 0
+    total_bytes: 10768
+    cpu_seconds: 0.000121000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "128594806220"
+  - group: "map insert/find comparison"
+    interface: "cpp-sstl"
+    object_bytes: 11544
+    storage_bytes: 0
+    total_bytes: 11544
+    cpu_seconds: 0.000111000
+    cpu_diff_percent: -8.264463
+    memory_diff_percent: 7.206538
+    checksum: "128594806220"
+  - group: "map insert/find comparison"
+    interface: "stl"
+    object_bytes: 48
+    storage_bytes: 13824
+    total_bytes: 13872
+    cpu_seconds: 0.000157000
+    cpu_diff_percent: 29.752066
+    memory_diff_percent: 28.826152
+    checksum: "128594806220"
+  - group: "set insert/find comparison"
+    interface: "c-sstl"
+    object_bytes: 4624
+    storage_bytes: 0
+    total_bytes: 4624
+    cpu_seconds: 0.000070000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "4957"
+  - group: "set insert/find comparison"
+    interface: "cpp-sstl"
+    object_bytes: 6168
+    storage_bytes: 0
+    total_bytes: 6168
+    cpu_seconds: 0.000076000
+    cpu_diff_percent: 8.571429
+    memory_diff_percent: 33.391003
+    checksum: "4957"
+  - group: "set insert/find comparison"
+    interface: "stl"
+    object_bytes: 48
+    storage_bytes: 7680
+    total_bytes: 7728
+    cpu_seconds: 0.000104000
+    cpu_diff_percent: 48.571429
+    memory_diff_percent: 67.128028
+    checksum: "4957"
+  - group: "flat_map insert/find comparison"
+    interface: "c-sstl"
+    object_bytes: 6920
+    storage_bytes: 0
+    total_bytes: 6920
+    cpu_seconds: 0.000131000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "128594806220"
+  - group: "flat_map insert/find comparison"
+    interface: "cpp-sstl"
+    object_bytes: 6928
+    storage_bytes: 0
+    total_bytes: 6928
+    cpu_seconds: 0.000206000
+    cpu_diff_percent: 57.251908
+    memory_diff_percent: 0.115607
+    checksum: "128594806220"
+  - group: "flat_map insert/find comparison"
+    interface: "stl-proxy"
+    object_bytes: 24
+    storage_bytes: 6912
+    total_bytes: 6936
+    cpu_seconds: 0.000180000
+    cpu_diff_percent: 37.404580
+    memory_diff_percent: 0.231214
+    checksum: "128594806220"
+  - group: "flat_set insert/find comparison"
+    interface: "c-sstl"
+    object_bytes: 776
+    storage_bytes: 0
+    total_bytes: 776
+    cpu_seconds: 0.000174000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "4957"
+  - group: "flat_set insert/find comparison"
+    interface: "cpp-sstl"
+    object_bytes: 1552
+    storage_bytes: 0
+    total_bytes: 1552
+    cpu_seconds: 0.000265000
+    cpu_diff_percent: 52.298851
+    memory_diff_percent: 100.000000
+    checksum: "4957"
+  - group: "flat_set insert/find comparison"
+    interface: "stl-proxy"
+    object_bytes: 24
+    storage_bytes: 768
+    total_bytes: 792
+    cpu_seconds: 0.000161000
+    cpu_diff_percent: -7.471264
+    memory_diff_percent: 2.061856
+    checksum: "4957"
+  - group: "unordered_map insert/find comparison"
+    interface: "c-sstl"
+    object_bytes: 10712
+    storage_bytes: 0
+    total_bytes: 10712
+    cpu_seconds: 0.000059000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "128594806350"
+  - group: "unordered_map insert/find comparison"
+    interface: "cpp-sstl"
+    object_bytes: 10264
+    storage_bytes: 0
+    total_bytes: 10264
+    cpu_seconds: 0.000068000
+    cpu_diff_percent: 15.254237
+    memory_diff_percent: -4.182226
+    checksum: "128594806350"
+  - group: "unordered_map insert/find comparison"
+    interface: "stl-proxy"
+    object_bytes: 48
+    storage_bytes: 13824
+    total_bytes: 13872
+    cpu_seconds: 0.000149000
+    cpu_diff_percent: 152.542373
+    memory_diff_percent: 29.499627
+    checksum: "128594806350"
+  - group: "unordered_set insert/find comparison"
+    interface: "c-sstl"
+    object_bytes: 4568
+    storage_bytes: 0
+    total_bytes: 4568
+    cpu_seconds: 0.000027000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "5470"
+  - group: "unordered_set insert/find comparison"
+    interface: "cpp-sstl"
+    object_bytes: 4888
+    storage_bytes: 0
+    total_bytes: 4888
+    cpu_seconds: 0.000057000
+    cpu_diff_percent: 111.111111
+    memory_diff_percent: 7.005254
+    checksum: "5470"
+  - group: "unordered_set insert/find comparison"
+    interface: "stl-proxy"
+    object_bytes: 48
+    storage_bytes: 7680
+    total_bytes: 7728
+    cpu_seconds: 0.000120000
+    cpu_diff_percent: 344.444444
+    memory_diff_percent: 69.176883
+    checksum: "5470"
+  - group: "bitset set/flip/test comparison"
+    interface: "c-sstl"
+    object_bytes: 131072
+    storage_bytes: 0
+    total_bytes: 131072
+    cpu_seconds: 0.004416000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "57856"
+  - group: "bitset set/flip/test comparison"
+    interface: "cpp-sstl"
+    object_bytes: 131072
+    storage_bytes: 0
+    total_bytes: 131072
+    cpu_seconds: 0.004918000
+    cpu_diff_percent: 11.367754
+    memory_diff_percent: 0.000000
+    checksum: "57856"
+  - group: "bitset set/flip/test comparison"
+    interface: "stl"
+    object_bytes: 131072
+    storage_bytes: 0
+    total_bytes: 131072
+    cpu_seconds: 0.020374000
+    cpu_diff_percent: 361.367754
+    memory_diff_percent: 0.000000
+    checksum: "57856"
+  - group: "optional set/reset/value comparison"
+    interface: "c-sstl"
+    object_bytes: 36
+    storage_bytes: 0
+    total_bytes: 36
+    cpu_seconds: 0.002255000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "140736477773694"
+  - group: "optional set/reset/value comparison"
+    interface: "cpp-sstl"
+    object_bytes: 36
+    storage_bytes: 0
+    total_bytes: 36
+    cpu_seconds: 0.002391000
+    cpu_diff_percent: 6.031042
+    memory_diff_percent: 0.000000
+    checksum: "140736477773694"
+  - group: "optional set/reset/value comparison"
+    interface: "stl-proxy"
+    object_bytes: 36
+    storage_bytes: 0
+    total_bytes: 36
+    cpu_seconds: 0.003237000
+    cpu_diff_percent: 43.547672
+    memory_diff_percent: 0.000000
+    checksum: "140736477773694"
+  - group: "variant assign/read comparison"
+    interface: "c-sstl"
+    object_bytes: 36
+    storage_bytes: 0
+    total_bytes: 36
+    cpu_seconds: 0.001265000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "70363433533380"
+  - group: "variant assign/read comparison"
+    interface: "cpp-sstl"
+    object_bytes: 36
+    storage_bytes: 0
+    total_bytes: 36
+    cpu_seconds: 0.002023000
+    cpu_diff_percent: 59.920949
+    memory_diff_percent: 0.000000
+    checksum: "70363433533380"
+  - group: "variant assign/read comparison"
+    interface: "stl-proxy"
+    object_bytes: 40
+    storage_bytes: 0
+    total_bytes: 40
+    cpu_seconds: 0.002087000
+    cpu_diff_percent: 64.980237
+    memory_diff_percent: 11.111111
+    checksum: "70363433533380"
+  - group: "function call comparison"
+    interface: "c-sstl"
+    object_bytes: 16
+    storage_bytes: 0
+    total_bytes: 16
+    cpu_seconds: 0.000593000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "140726902095872"
+  - group: "function call comparison"
+    interface: "cpp-sstl"
+    object_bytes: 56
+    storage_bytes: 0
+    total_bytes: 56
+    cpu_seconds: 0.000924000
+    cpu_diff_percent: 55.817875
+    memory_diff_percent: 250.000000
+    checksum: "140726902095872"
+  - group: "function call comparison"
+    interface: "stl-proxy"
+    object_bytes: 8
+    storage_bytes: 0
+    total_bytes: 8
+    cpu_seconds: 0.000545000
+    cpu_diff_percent: -8.094435
+    memory_diff_percent: -50.000000
+    checksum: "140726902095872"
+  - group: "stack adaptor push/top/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 2097160
+    storage_bytes: 0
+    total_bytes: 2097160
+    cpu_seconds: 0.024397000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "562949570690588"
+  - group: "stack adaptor push/top/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 2097160
+    storage_bytes: 0
+    total_bytes: 2097160
+    cpu_seconds: 0.014134000
+    cpu_diff_percent: -42.066648
+    memory_diff_percent: 0.000000
+    checksum: "562949570690588"
+  - group: "stack adaptor push/top/pop comparison"
+    interface: "stl"
+    object_bytes: 24
+    storage_bytes: 5242880
+    total_bytes: 5242904
+    cpu_seconds: 0.017096000
+    cpu_diff_percent: -29.925811
+    memory_diff_percent: 150.000191
+    checksum: "562949570690588"
+  - group: "queue adaptor push/front/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 2097168
+    storage_bytes: 0
+    total_bytes: 2097168
+    cpu_seconds: 0.026365000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "562949570690588"
+  - group: "queue adaptor push/front/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 2097176
+    storage_bytes: 0
+    total_bytes: 2097176
+    cpu_seconds: 0.015819000
+    cpu_diff_percent: -40.000000
+    memory_diff_percent: 0.000381
+    checksum: "562949570690588"
+  - group: "queue adaptor push/front/pop comparison"
+    interface: "stl"
+    object_bytes: 80
+    storage_bytes: 2180144
+    total_bytes: 2180224
+    cpu_seconds: 0.015141000
+    cpu_diff_percent: -42.571591
+    memory_diff_percent: 3.960388
+    checksum: "562949570690588"
+  - group: "priority_queue adaptor push/top/pop comparison"
+    interface: "c-sstl"
+    object_bytes: 2097160
+    storage_bytes: 0
+    total_bytes: 2097160
+    cpu_seconds: 0.091236000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "562949570690588"
+  - group: "priority_queue adaptor push/top/pop comparison"
+    interface: "cpp-sstl"
+    object_bytes: 2097168
+    storage_bytes: 0
+    total_bytes: 2097168
+    cpu_seconds: 0.156984000
+    cpu_diff_percent: 72.063659
+    memory_diff_percent: 0.000381
+    checksum: "562949570690588"
+  - group: "priority_queue adaptor push/top/pop comparison"
+    interface: "stl"
+    object_bytes: 32
+    storage_bytes: 5242880
+    total_bytes: 5242912
+    cpu_seconds: 0.165073000
+    cpu_diff_percent: 80.929677
+    memory_diff_percent: 150.000572
+    checksum: "562949570690588"
+  - group: "algorithm sort/lower_bound/hash comparison"
+    interface: "c-sstl"
+    object_bytes: 131072
+    storage_bytes: 0
+    total_bytes: 131072
+    cpu_seconds: 0.006374000
+    cpu_diff_percent: 0.000000
+    memory_diff_percent: 0.000000
+    checksum: "262190247163455096"
+  - group: "algorithm sort/lower_bound/hash comparison"
+    interface: "cpp-sstl"
+    object_bytes: 131072
+    storage_bytes: 0
+    total_bytes: 131072
+    cpu_seconds: 0.012199000
+    cpu_diff_percent: 91.386884
+    memory_diff_percent: 0.000000
+    checksum: "262190247163455096"
+  - group: "algorithm sort/lower_bound/hash comparison"
+    interface: "stl"
+    object_bytes: 24
+    storage_bytes: 131072
+    total_bytes: 131096
+    cpu_seconds: 0.018989000
+    cpu_diff_percent: 197.913398
+    memory_diff_percent: 0.018311
+    checksum: "262190247163455096"

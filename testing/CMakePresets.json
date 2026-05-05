@@ -1,0 +1,142 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "host-debug",
+      "displayName": "Host debug C99/C++03",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/host-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SSTL_ROOT": "${sourceDir}/..",
+        "SSTL_ERROR_POLICY": "SSTL_RETURN"
+      }
+    },
+    {
+      "name": "host-panic",
+      "displayName": "Host PANIC policy",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-panic",
+      "cacheVariables": {
+        "SSTL_ERROR_POLICY": "SSTL_PANIC"
+      }
+    },
+    {
+      "name": "host-ub",
+      "displayName": "Host UB policy",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-ub",
+      "cacheVariables": {
+        "SSTL_ERROR_POLICY": "SSTL_UB",
+        "CMAKE_C_FLAGS": "-fsanitize=undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=undefined"
+      }
+    },
+    {
+      "name": "host-asan-ubsan",
+      "displayName": "Host ASan/UBSan",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-asan-ubsan",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "host-coverage",
+      "displayName": "Host coverage",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-coverage",
+      "cacheVariables": {
+        "SSTL_ENABLE_COVERAGE": "ON"
+      }
+    },
+    {
+      "name": "host-freestanding-probes",
+      "displayName": "Host freestanding compile probes",
+      "inherits": "host-debug",
+      "binaryDir": "${sourceDir}/build/host-freestanding-probes",
+      "cacheVariables": {
+        "SSTL_ENABLE_FREESTANDING_PROBES": "ON"
+      }
+    },
+    {
+      "name": "host-libfuzzer",
+      "displayName": "Host libFuzzer targets",
+      "inherits": "host-asan-ubsan",
+      "binaryDir": "${sourceDir}/build/host-libfuzzer",
+      "cacheVariables": {
+        "SSTL_ENABLE_LIBFUZZER": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "host-debug",
+      "configurePreset": "host-debug"
+    },
+    {
+      "name": "host-asan-ubsan",
+      "configurePreset": "host-asan-ubsan"
+    },
+    {
+      "name": "host-panic",
+      "configurePreset": "host-panic"
+    },
+    {
+      "name": "host-ub",
+      "configurePreset": "host-ub"
+    },
+    {
+      "name": "host-coverage",
+      "configurePreset": "host-coverage"
+    },
+    {
+      "name": "host-freestanding-probes",
+      "configurePreset": "host-freestanding-probes"
+    },
+    {
+      "name": "host-libfuzzer",
+      "configurePreset": "host-libfuzzer"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "host-debug",
+      "configurePreset": "host-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "host-asan-ubsan",
+      "configurePreset": "host-asan-ubsan",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "host-panic",
+      "configurePreset": "host-panic",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "host-ub",
+      "configurePreset": "host-ub",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "host-coverage",
+      "configurePreset": "host-coverage",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

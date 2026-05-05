@@ -1,0 +1,316 @@
+tests:
+  - test_id: cpp03.vector.capacity.full.return
+    virtual_path: tests/cpp03/vector/test_vector_capacity.cpp
+    req_ids: [REQ-02, REQ-03, REQ-04]
+    api_ids: [cpp.vector.push_back, cpp.vector.insert]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, POLICY-MATRIX]
+  - test_id: cpp03.policy.matrix.asserted
+    virtual_path: tests/cpp03/policy/test_policy_matrix.cpp
+    req_ids: [REQ-04]
+    api_ids: [cpp.policy.return, cpp.policy.panic, cpp.policy.ub, cpp.vector.at, cpp.vector.pop_back]
+    patterns: [POLICY-MATRIX]
+  - test_id: cpp03.family.policy_capacity
+    virtual_path: tests/cpp03/policy/test_family_policy_capacity.cpp
+    req_ids: [REQ-03, REQ-04, REQ-05, REQ-06]
+    api_ids: [cpp.string.policy_capacity, cpp.deque.policy_capacity, cpp.list.policy_capacity, cpp.forward_list.policy_capacity, cpp.map.policy_capacity, cpp.set.policy_capacity, cpp.flat_map.policy_capacity, cpp.unordered_map.policy_capacity]
+    patterns: [POLICY-MATRIX, CAPACITY-BOUNDARY]
+  - test_id: cpp03.vector.try_policy.return
+    virtual_path: tests/cpp03/vector/test_vector_try_policy.cpp
+    req_ids: [REQ-04, REQ-05]
+    api_ids: [cpp.vector.try_at, cpp.vector.try_push_back, cpp.vector.try_pop_back, cpp.vector.try_insert]
+    patterns: [POLICY-MATRIX, CAPACITY-BOUNDARY]
+  - test_id: cpp03.vector.capacity.parameter_set
+    virtual_path: tests/cpp03/vector/test_vector_capacity_parameter_set.cpp
+    req_ids: [REQ-03, REQ-04, REQ-06]
+    api_ids: [cpp.vector.push_back]
+    patterns: [CAPACITY-BOUNDARY]
+  - test_id: cpp03.vector.lifetime.tracked
+    virtual_path: tests/cpp03/vector/test_vector_lifetime.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05]
+    api_ids: [cpp.vector.push_back, cpp.vector.erase]
+    patterns: [LIFETIME, AUDIT-NOALLOC]
+  - test_id: cpp03.vector.swap.elementwise
+    virtual_path: tests/cpp03/vector/test_vector_swap.cpp
+    req_ids: [REQ-05, REQ-06]
+    api_ids: [cpp.vector.swap, cpp.vector.comparison, cpp.vector.begin, cpp.vector.data, cpp.vector.assign, cpp.vector.insert, cpp.vector.try_front, cpp.vector.try_back, cpp.vector.cross_capacity, cpp.vector.factories, cpp.deque.swap]
+    patterns: [SWAP-SEMANTICS, ITER-INVALIDATION]
+  - test_id: cpp03.vector.resize
+    virtual_path: tests/cpp03/vector/test_vector_resize.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.vector.resize]
+    patterns: [CAPACITY-BOUNDARY, AUDIT-NOALLOC]
+  - test_id: cpp03.vector.oracle.deterministic_trace
+    virtual_path: tests/cpp03/parity/test_vector_std_oracle.cpp
+    req_ids: [REQ-05, REQ-06]
+    api_ids: [cpp.vector.push_back, cpp.vector.erase, cpp.vector.insert]
+    patterns: [STL-ORACLE-EQUIV]
+  - test_id: cpp03.string.capacity.nul_terminated
+    virtual_path: tests/cpp03/string/test_string_capacity.cpp
+    req_ids: [REQ-02, REQ-03, REQ-04, REQ-05]
+    api_ids: [cpp.string.push_back]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY]
+  - test_id: cpp03.string.find_compare.oracle
+    virtual_path: tests/cpp03/string/test_string_find_compare.cpp
+    req_ids: [REQ-05]
+    api_ids: [cpp.string.find, cpp.string.rfind, cpp.string.compare]
+    patterns: [STL-ORACLE-EQUIV]
+  - test_id: cpp03.string.mutation_members
+    virtual_path: tests/cpp03/string/test_string_mutation_members.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.string.append_n, cpp.string.assign, cpp.string.insert, cpp.string.erase, cpp.string.replace, cpp.string.pop_back, cpp.string.resize, cpp.string.swap, cpp.string.operator_plus_equal, cpp.string.compare, cpp.string.ordering, cpp.string.try_front, cpp.string.try_back, cpp.string.find_first_of, cpp.string.find_first_not_of, cpp.string.find_last_of, cpp.string.find_last_not_of]
+    patterns: [CAPACITY-BOUNDARY, STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.string_view.contracts
+    virtual_path: tests/cpp03/string_view/test_string_view_contracts.cpp
+    req_ids: [REQ-05, REQ-06]
+    api_ids: [cpp.string_view.ctors, cpp.string_view.find, cpp.string_view.rfind, cpp.string_view.find_first_of, cpp.string_view.find_first_not_of, cpp.string_view.find_last_of, cpp.string_view.find_last_not_of, cpp.string_view.compare, cpp.string_view.starts_with, cpp.string_view.ends_with, cpp.string_view.remove_prefix, cpp.string_view.remove_suffix]
+    patterns: [STL-ORACLE-EQUIV, POLICY-MATRIX]
+  - test_id: cpp03.family.lifetime.tracked
+    virtual_path: tests/cpp03/lifetime/test_family_lifetime.cpp
+    req_ids: [REQ-02, REQ-05, REQ-06]
+    api_ids: [cpp.deque.lifetime, cpp.list.lifetime, cpp.forward_list.lifetime, cpp.unordered_map.contract, cpp.unordered_set.contract, cpp.optional.lifetime, cpp.variant.lifetime]
+    patterns: [LIFETIME, AUDIT-NOALLOC]
+  - test_id: cpp03.list.transfer.static_pool
+    virtual_path: tests/cpp03/list/test_list_transfer.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.list.splice, cpp.list.try_splice, cpp.list.merge, cpp.list.try_merge, cpp.list.try_front, cpp.list.try_back]
+    patterns: [CAPACITY-BOUNDARY, ITER-INVALIDATION]
+  - test_id: cpp03.list.same_container_splice.iterator_preservation
+    virtual_path: tests/cpp03/list/test_list_same_container_splice.cpp
+    req_ids: [REQ-05, REQ-06]
+    api_ids: [cpp.list.splice.same_container]
+    patterns: [ITER-INVALIDATION, STL-ORACLE-EQUIV]
+  - test_id: cpp03.list.insert_erase_merge
+    virtual_path: tests/cpp03/list/test_list_insert_erase_merge.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.list.insert, cpp.list.erase, cpp.list.merge]
+    patterns: [CAPACITY-BOUNDARY, STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.forward_list.splice_after.contracts
+    virtual_path: tests/cpp03/list/test_forward_list_contracts.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.forward_list.splice_after, cpp.forward_list.try_splice_after, cpp.forward_list.insert_after, cpp.forward_list.erase_after, cpp.forward_list.merge, cpp.forward_list.try_merge, cpp.forward_list.front, cpp.forward_list.try_front, cpp.forward_list.push_front, cpp.forward_list.pop_front, cpp.forward_list.try_pop_front]
+    patterns: [CAPACITY-BOUNDARY, ITER-INVALIDATION]
+  - test_id: cpp03.forward_list.algorithms
+    virtual_path: tests/cpp03/list/test_forward_list_algorithms.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.forward_list.remove, cpp.forward_list.remove_if, cpp.forward_list.unique, cpp.forward_list.sort, cpp.forward_list.merge]
+    patterns: [CAPACITY-BOUNDARY, STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.map.erase
+    virtual_path: tests/cpp03/map/test_map_erase.cpp
+    req_ids: [REQ-05, REQ-06]
+    api_ids: [cpp.map.erase]
+    patterns: [STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.iterator.documented_deviations
+    virtual_path: tests/cpp03/iterator/test_deque_flat_invalidation.cpp
+    req_ids: [REQ-05, REQ-06]
+    api_ids: [cpp.deque.contract, cpp.flat_map.contract]
+    patterns: [ITER-INVALIDATION]
+  - test_id: cpp03.layout.static_storage_contract
+    virtual_path: tests/cpp03/layout/test_static_layout.cpp
+    req_ids: [REQ-02, REQ-03, REQ-06]
+    api_ids: [cpp.vector.push_back, cpp.string.push_back, cpp.deque.contract]
+    patterns: [STATIC-LAYOUT]
+  - test_id: cpp03.owning.zero_capacity
+    virtual_path: tests/cpp03/zero_capacity/test_zero_capacity.cpp
+    req_ids: [REQ-01, REQ-03, REQ-04, REQ-06]
+    api_ids: [cpp.vector.push_back, cpp.string.push_back]
+    patterns: [CAPACITY-BOUNDARY, STATIC-LAYOUT]
+  - test_id: cpp03.compile.public_headers
+    virtual_path: tests/cpp03/compile_probe/sstl_cxx03_probe.cpp
+    req_ids: [REQ-01, REQ-05, REQ-08, REQ-10]
+    api_ids: [cpp.public_headers]
+    patterns: [STL-COMPILE-PARITY, FREESTANDING-COMPILE]
+  - test_id: cpp03.policy.default_debug
+    virtual_path: tests/cpp03/compile_probe/test_default_policy_debug.cpp
+    req_ids: [REQ-04]
+    api_ids: [cpp.policy.default, cpp.policy.panic]
+    patterns: [POLICY-MATRIX, STL-COMPILE-PARITY]
+  - test_id: cpp03.policy.default_debug_custom_panic_hook
+    virtual_path: tests/cpp03/compile_probe/test_default_policy_custom_panic_hook.cpp
+    req_ids: [REQ-04]
+    api_ids: [cpp.policy.default, cpp.policy.panic, cpp.vector.at]
+    patterns: [POLICY-MATRIX, EDGE-BRANCH-COVERAGE]
+  - test_id: cpp03.policy.default_release
+    virtual_path: tests/cpp03/compile_probe/test_default_policy_release.cpp
+    req_ids: [REQ-04]
+    api_ids: [cpp.policy.default, cpp.policy.return]
+    patterns: [POLICY-MATRIX, STL-COMPILE-PARITY]
+  - test_id: cpp03.compile.tracked_public_types
+    virtual_path: tests/cpp03/compile_probe/sstl_cxx03_tracked_probe.cpp
+    req_ids: [REQ-01, REQ-05, REQ-10]
+    api_ids: [cpp.public_headers.tracked]
+    patterns: [STL-COMPILE-PARITY, LIFETIME]
+  - test_id: cpp03.public_families.basic_contracts
+    virtual_path: tests/cpp03/compile_probe/test_public_family_contracts.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.array.contract, cpp.array.comparison, cpp.span.contract, cpp.deque.contract, cpp.list.contract, cpp.forward_list.contract, cpp.map.contract, cpp.set.contract, cpp.set.erase, cpp.flat_map.contract, cpp.flat_map.erase, cpp.flat_map.bounds, cpp.flat_set.contract, cpp.flat_set.erase, cpp.unordered_map.contract, cpp.unordered_map.erase, cpp.unordered_set.contract, cpp.unordered_set.erase, cpp.bitset.contract, cpp.optional.contract, cpp.variant.contract, cpp.function.contract, cpp.functional.contract, cpp.numeric.contract, cpp.iterator.contract, cpp.utility.non_member_hooks, cpp.lifetime.shims, cpp.vector.cross_capacity.sfinae, cpp.queue.contract, cpp.stack.contract, cpp.priority_queue.contract, cpp.owning.try_capacity]
+    patterns: [CAPACITY-BOUNDARY, STL-COMPILE-PARITY, AUDIT-NOALLOC]
+  - test_id: cpp03.compile.mixed_c_cpp_panic_hook
+    virtual_path: tests/cpp03/compile_probe/test_mixed_c_cpp_panic_hook.cpp
+    req_ids: [REQ-01, REQ-04, REQ-07, REQ-10]
+    api_ids: [cpp.public_headers, c.public_headers, cpp.policy.panic, c.policy.panic]
+    patterns: [STL-COMPILE-PARITY, C-API-PARITY, POLICY-MATRIX]
+  - test_id: cpp03.algorithm.oracle.basic
+    virtual_path: tests/cpp03/algorithm/test_algorithm_oracle.cpp
+    req_ids: [REQ-02, REQ-05]
+    api_ids: [cpp.algorithm.sort, cpp.algorithm.count, cpp.algorithm.copy, cpp.algorithm.reverse, cpp.algorithm.set_union, cpp.algorithm.accumulate]
+    patterns: [STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.algorithm.oracle.extended
+    virtual_path: tests/cpp03/algorithm/test_algorithm_extended_oracle.cpp
+    req_ids: [REQ-02, REQ-05]
+    api_ids: [cpp.algorithm.find_if, cpp.algorithm.all_of, cpp.algorithm.any_of, cpp.algorithm.none_of, cpp.algorithm.equal, cpp.algorithm.mismatch, cpp.algorithm.search, cpp.algorithm.lexicographical_compare, cpp.algorithm.min_element, cpp.algorithm.max_element, cpp.algorithm.copy_backward, cpp.algorithm.fill, cpp.algorithm.transform, cpp.algorithm.replace, cpp.algorithm.remove, cpp.algorithm.rotate, cpp.algorithm.unique, cpp.algorithm.heap, cpp.algorithm.partition, cpp.algorithm.set_intersection, cpp.algorithm.equal_range, cpp.algorithm.inner_product, cpp.algorithm.partial_sum, cpp.algorithm.adjacent_difference, cpp.algorithm.iota]
+    patterns: [STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.algorithm.oracle.remaining
+    virtual_path: tests/cpp03/algorithm/test_algorithm_remaining_oracle.cpp
+    req_ids: [REQ-02, REQ-05]
+    api_ids: [cpp.algorithm.find_if_not, cpp.algorithm.count_if, cpp.algorithm.copy_n, cpp.algorithm.copy_if, cpp.algorithm.replace_if, cpp.algorithm.remove_if, cpp.algorithm.fill_n, cpp.algorithm.swap_ranges, cpp.algorithm.iter_swap, cpp.algorithm.stable_sort, cpp.algorithm.partial_sort, cpp.algorithm.nth_element, cpp.algorithm.is_sorted, cpp.algorithm.is_sorted_until, cpp.algorithm.push_heap, cpp.algorithm.sort_heap, cpp.algorithm.stable_partition, cpp.algorithm.merge, cpp.algorithm.includes, cpp.algorithm.set_difference, cpp.algorithm.set_symmetric_difference, cpp.algorithm.upper_bound, cpp.algorithm.minmax_element, cpp.algorithm.comparator_overloads]
+    patterns: [STL-ORACLE-EQUIV, AUDIT-NOALLOC]
+  - test_id: cpp03.coverage.gap.contracts
+    virtual_path: tests/cpp03/coverage/test_coverage_gap_contracts.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06, REQ-RUNTIME-COMPARISON]
+    api_ids: [cpp.string.push_back, cpp.string.pop_back, cpp.forward_list.contract, cpp.map.contract, cpp.vector.push_back, cpp.vector.try_insert, cpp.vector.erase, cpp.vector.resize, cpp.vector.comparison, cpp.deque.contract, cpp.deque.swap, cpp.list.splice, cpp.list.try_splice, cpp.set.contract, cpp.set.erase, cpp.flat_map.contract, cpp.flat_map.erase, cpp.flat_map.bounds, cpp.flat_set.contract, cpp.flat_set.erase, cpp.unordered_map.contract, cpp.unordered_map.erase, cpp.unordered_map.subscript, cpp.unordered_set.contract, cpp.unordered_set.erase, cpp.algorithm.comparator_overloads, cpp.function.contract]
+    patterns: [CAPACITY-BOUNDARY, EDGE-BRANCH-COVERAGE, AUDIT-NOALLOC]
+  - test_id: c99.compile.public_headers
+    virtual_path: tests/c99/compile_probe/sstl_c99_probe.c
+    req_ids: [REQ-01, REQ-07, REQ-10]
+    api_ids: [c.public_headers, c.array.contract, c.array.cmp, c.span.contract, c.string_view.contract, c.deque.contract, c.queue.contract, c.stack.contract, c.priority_queue.contract, c.list.contract, c.forward_list.contract, c.map.contract, c.set.contract, c.set.erase, c.flat_map.contract, c.flat_set.contract, c.unordered_map.contract, c.unordered_set.contract, c.bitset.contract, c.optional.contract, c.variant.contract, c.function.contract, c.algorithm.contract, c.owning.try_capacity, c.hooks.void_callbacks]
+    patterns: [STL-COMPILE-PARITY, C-API-PARITY, FREESTANDING-COMPILE]
+  - test_id: c99.policy.default_debug
+    virtual_path: tests/c99/compile_probe/test_default_policy_debug.c
+    req_ids: [REQ-04, REQ-07]
+    api_ids: [c.policy.default, c.policy.panic]
+    patterns: [POLICY-MATRIX, C-API-PARITY]
+  - test_id: c99.policy.default_release
+    virtual_path: tests/c99/compile_probe/test_default_policy_release.c
+    req_ids: [REQ-04, REQ-07]
+    api_ids: [c.policy.default, c.policy.return]
+    patterns: [POLICY-MATRIX, C-API-PARITY]
+  - test_id: c99.algorithm.helpers.coverage
+    virtual_path: tests/c99/coverage/test_algorithm_helpers.c
+    req_ids: [REQ-03, REQ-06]
+    api_ids: [c.algorithm.contract]
+    patterns: [EDGE-BRANCH-COVERAGE, AUDIT-NOALLOC]
+  - test_id: c99.algorithm.contracts
+    virtual_path: tests/c99/algorithm/test_algorithm_contracts.c
+    req_ids: [REQ-01, REQ-07, REQ-10]
+    api_ids: [c.algorithm.contract]
+    patterns: [C-API-PARITY, STL-COMPILE-PARITY, NO-HEAP-ALLOCATION]
+  - test_id: c99.string_view.contracts
+    virtual_path: tests/c99/string_view/test_string_view_contracts.c
+    req_ids: [REQ-05, REQ-06, REQ-07]
+    api_ids: [c.string_view.contract]
+    patterns: [AUDIT-NOALLOC, C-API-PARITY]
+  - test_id: c99.vector.capacity.full.return
+    virtual_path: tests/c99/vector/test_vector_capacity.c
+    req_ids: [REQ-02, REQ-03, REQ-04, REQ-07]
+    api_ids: [c.vector.push_back]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.policy.matrix.asserted
+    virtual_path: tests/c99/vector/test_vector_policy_matrix.c
+    req_ids: [REQ-04, REQ-07]
+    api_ids: [c.policy.return, c.policy.panic, c.policy.ub, c.vector.at, c.vector.pop_back]
+    patterns: [POLICY-MATRIX]
+  - test_id: c99.string.capacity.nul_terminated
+    virtual_path: tests/c99/string/test_string_capacity.c
+    req_ids: [REQ-02, REQ-03, REQ-04, REQ-07]
+    api_ids: [c.string.push_back]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.string.policy_capacity
+    virtual_path: tests/c99/string/test_string_policy_capacity.c
+    req_ids: [REQ-03, REQ-04, REQ-07]
+    api_ids: [c.string.policy_capacity, c.string.try_at, c.string.at]
+    patterns: [POLICY-MATRIX, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.vector.try_policy.return
+    virtual_path: tests/c99/vector/test_vector_try_policy.c
+    req_ids: [REQ-04, REQ-07]
+    api_ids: [c.vector.try_at, c.vector.try_push_back, c.vector.try_pop_back]
+    patterns: [POLICY-MATRIX, C-API-PARITY]
+  - test_id: c99.vector.capacity.parameter_set
+    virtual_path: tests/c99/vector/test_vector_capacity_parameter_set.c
+    req_ids: [REQ-03, REQ-04, REQ-06, REQ-07]
+    api_ids: [c.vector.push_back]
+    patterns: [CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.vector.extended_ops
+    virtual_path: tests/c99/vector/test_vector_extended_ops.c
+    req_ids: [REQ-03, REQ-05, REQ-06, REQ-07]
+    api_ids: [c.vector.resize, c.vector.insert, c.vector.erase]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.string.extended_ops
+    virtual_path: tests/c99/string/test_string_extended_ops.c
+    req_ids: [REQ-03, REQ-05, REQ-06, REQ-07]
+    api_ids: [c.string.append_n, c.string.assign, c.string.insert, c.string.erase, c.string.replace, c.string.pop_back, c.string.resize, c.string.swap]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.adapters.queue_stack_priority_queue
+    virtual_path: tests/c99/adapters/test_queue_stack_priority_queue.c
+    req_ids: [REQ-03, REQ-05, REQ-06, REQ-07]
+    api_ids: [c.queue.contract, c.stack.contract, c.priority_queue.contract]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.list.extended_ops
+    virtual_path: tests/c99/list/test_list_extended_ops.c
+    req_ids: [REQ-03, REQ-05, REQ-06, REQ-07]
+    api_ids: [c.list.insert, c.list.pop_back, c.list.erase, c.list.remove, c.list.remove_if, c.list.unique, c.list.sort, c.list.merge, c.forward_list.before_begin, c.forward_list.insert_after, c.forward_list.erase_after, c.forward_list.splice_after, c.forward_list.remove, c.forward_list.remove_if, c.forward_list.unique, c.forward_list.sort, c.forward_list.merge]
+    patterns: [AUDIT-NOALLOC, CAPACITY-BOUNDARY, C-API-PARITY]
+  - test_id: c99.map.erase
+    virtual_path: tests/c99/map/test_map_erase.c
+    req_ids: [REQ-05, REQ-06, REQ-07]
+    api_ids: [c.map.contract, c.map.erase, c.set.contract, c.set.erase]
+    patterns: [AUDIT-NOALLOC, C-API-PARITY]
+  - test_id: c99.map.flat_unordered_semantics
+    virtual_path: tests/c99/map/test_flat_unordered_semantics.c
+    req_ids: [REQ-03, REQ-05, REQ-06, REQ-07]
+    api_ids: [c.flat_map.contract, c.flat_map.lower_bound, c.flat_set.contract, c.flat_set.lower_bound, c.unordered_map.contract, c.unordered_map.bucket_count, c.unordered_set.contract, c.unordered_set.bucket_count]
+    patterns: [AUDIT-NOALLOC, C-API-PARITY, CAPACITY-BOUNDARY]
+  - test_id: c99.owning.zero_capacity
+    virtual_path: tests/c99/zero_capacity/test_zero_capacity.c
+    req_ids: [REQ-01, REQ-03, REQ-04, REQ-06, REQ-07]
+    api_ids: [c.vector.push_back, c.string.push_back]
+    patterns: [CAPACITY-BOUNDARY, STATIC-LAYOUT]
+  - test_id: c99.layout.static_offsets
+    virtual_path: tests/c99/zero_capacity/test_c_layout_offsets.c
+    req_ids: [REQ-02, REQ-03, REQ-06, REQ-07]
+    api_ids: [c.vector.layout, c.string.layout]
+    patterns: [STATIC-LAYOUT]
+  - test_id: parity.vector.c_cpp_trace
+    virtual_path: tests/parity/test_c_cpp_vector_trace.cpp
+    req_ids: [REQ-07]
+    api_ids: [cpp.vector.parity, c.vector.parity]
+    patterns: [C-API-PARITY]
+  - test_id: runtime.interface.side_by_side
+    virtual_path: tests/runtime/test_interface_runtime_comparison.cpp
+    req_ids: [REQ-RUNTIME-COMPARISON]
+    api_ids: [c.vector.parity, cpp.vector.parity, c.string.push_back, cpp.string.push_back, c.array.contract, cpp.array.contract, c.span.contract, cpp.span.contract, c.string_view.contract, cpp.string_view.contract, c.deque.contract, cpp.deque.contract, c.queue.contract, cpp.queue.contract, c.stack.contract, cpp.stack.contract, c.priority_queue.contract, cpp.priority_queue.contract, c.list.contract, cpp.list.lifetime, c.forward_list.contract, cpp.forward_list.lifetime, c.map.contract, cpp.map.contract, c.set.contract, cpp.set.contract, c.flat_map.contract, cpp.flat_map.contract, c.flat_set.contract, cpp.flat_set.contract, c.unordered_map.contract, cpp.unordered_map.contract, c.unordered_set.contract, cpp.unordered_set.contract, c.bitset.contract, cpp.bitset.contract, c.optional.contract, cpp.optional.contract, c.variant.contract, cpp.variant.contract, c.function.contract, cpp.function.contract, c.algorithm.contract, cpp.algorithm.contract]
+    patterns: [RUNTIME-COMPARISON, API-PARITY, MEMORY-FOOTPRINT, CPU-FOOTPRINT]
+  - test_id: package.documentation.integrity
+    virtual_path: scripts/check_docs.py
+    req_ids: [REQ-08]
+    api_ids: [package.docs.integrity]
+    patterns: [DOC-LINK-INTEGRITY]
+  - test_id: property.cpp03.vector.random_trace.seeded
+    virtual_path: tests/properties/cpp03/prop_vector_random_trace.cpp
+    req_ids: [REQ-03, REQ-05, REQ-06]
+    api_ids: [cpp.vector.push_back, cpp.vector.erase]
+    patterns: [STL-ORACLE-EQUIV]
+  - test_id: fuzz.cpp03.vector.byte_trace
+    virtual_path: tests/fuzz/cpp03/fuzz_vector_trace.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05]
+    api_ids: [cpp.vector.push_back, cpp.vector.erase]
+    patterns: [FUZZ, AUDIT-NOALLOC]
+  - test_id: stress.cpp03.vector.long_cycles
+    virtual_path: tests/stress/cpp03/stress_vector_cycles.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05]
+    api_ids: [cpp.vector.push_back]
+    patterns: [STRESS, AUDIT-NOALLOC]
+  - test_id: regression.zero_capacity.no_zero_length_arrays
+    virtual_path: tests/regression/reg_zero_capacity_no_zero_length_arrays.c
+    req_ids: [REQ-01, REQ-06]
+    api_ids: [c.vector.push_back, c.string.push_back]
+    patterns: [STATIC-LAYOUT, CAPACITY-BOUNDARY]
+  - test_id: freestanding.cpp03.public_probe
+    virtual_path: tests/freestanding/freestanding_cpp03_probe.cpp
+    req_ids: [REQ-01, REQ-02]
+    api_ids: [cpp.freestanding.compile]
+    patterns: [FREESTANDING-COMPILE]
+  - test_id: freestanding.c99.public_probe
+    virtual_path: tests/freestanding/freestanding_c99_probe.c
+    req_ids: [REQ-01, REQ-02, REQ-07]
+    api_ids: [c.freestanding.compile]
+    patterns: [FREESTANDING-COMPILE]

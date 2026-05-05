@@ -1,0 +1,10 @@
+status: complete
+generated_at_utc: 2026-05-05T15:34:22.042924+00:00
+failed_checks:
+  []
+coverage_summary: manifests/coverage_summary.yaml
+documentation_summary: manifests/documentation_summary.yaml
+mutation_summary: manifests/mutation_summary.yaml
+docker_validation: manifests/docker_validation.yaml
+open_assumptions:
+  []

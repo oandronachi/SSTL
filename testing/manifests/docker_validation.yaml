@@ -1,0 +1,14 @@
+generated_at_utc: 2026-05-05T14:13:40.8582527Z
+environment: docker:gcc-13-bookworm
+tooling:
+  compiler: GCC 13.4.0
+  build_system: CMake + Ninja
+lanes:
+  host_debug: pass
+  host_panic: pass
+  host_ub: pass
+  target_smoke: pass
+target_smoke_definition: host-freestanding-probes
+notes:
+  - Docker ran the GCC RETURN, PANIC, UB, 61-test host-debug suite, runtime comparison, mutation smoke, and freestanding probe lanes against SSTL_ROOT=/work.
+  - The freestanding probe lane is the local target-smoke substitute for this workspace.

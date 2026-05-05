@@ -1,0 +1,9 @@
+waivers:
+  - id: WAIVE-TARGET-SIM
+    status: closed
+    reason: Docker GCC freestanding probe lane now provides the local target-smoke substitute for this workspace.
+    evidence: manifests/docker_validation.yaml
+  - id: WAIVE-MUTATION
+    status: closed
+    reason: Deterministic Docker mutation smoke killed the C and C++ full-vector success-reporting mutants.
+    evidence: manifests/mutation_summary.yaml
