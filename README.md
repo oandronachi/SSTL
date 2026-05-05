@@ -196,4 +196,4 @@ Contributions are welcome!  This project is the result of generative AI collabor
 
 ## License
 
-This project is released under the MIT licence.  See the [LICENSE.md](LICENSE.md) file for details.
+This project is released under the MIT licence.  See the [LICENSE](LICENSE) file for details.
