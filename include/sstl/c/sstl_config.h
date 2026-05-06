@@ -29,6 +29,36 @@
 # define SSTL_C_UNUSED
 #endif
 
+#ifndef SSTL_C_INLINE
+/** @def SSTL_C_INLINE
+ * @brief Storage class for generated header-only C API functions.
+ */
+# ifdef SSTL_EXTERN
+#  define SSTL_C_INLINE
+# else
+#  define SSTL_C_INLINE static inline SSTL_C_UNUSED
+# endif
+#endif
+
+#ifndef SSTL_C_LOCAL
+/** @def SSTL_C_LOCAL
+ * @brief Storage class for header-local C helpers that must remain internal.
+ */
+# define SSTL_C_LOCAL static inline SSTL_C_UNUSED
+#endif
+
+#ifndef SSTL_STATIC_ASSERT
+# define SSTL_STATIC_ASSERT_JOIN_(a, b) a##b
+# define SSTL_STATIC_ASSERT_JOIN(a, b) SSTL_STATIC_ASSERT_JOIN_(a, b)
+# define SSTL_STATIC_ASSERT_IMPL(cond, name, line) \
+  typedef char SSTL_STATIC_ASSERT_JOIN(sstl_static_assert_##name##_, line)[(cond) ? 1 : -1]; \
+  enum { SSTL_STATIC_ASSERT_JOIN(sstl_static_assert_use_##name##_, line) = sizeof(SSTL_STATIC_ASSERT_JOIN(sstl_static_assert_##name##_, line)) }
+/** @def SSTL_STATIC_ASSERT
+ * @brief C99-compatible static assertion using a typedef with a sized array.
+ */
+# define SSTL_STATIC_ASSERT(cond, name) SSTL_STATIC_ASSERT_IMPL(cond, name, __LINE__)
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
 /** @def SSTL_C_DEPRECATED
  * @brief Mark legacy C helper hooks that remain only for source compatibility.
@@ -63,11 +93,14 @@ typedef void (*sstl_transform_fn)(void* dst, const void* src);
  * @param b Address of the second `int`.
  * @return Negative when first is less, positive when first is greater, zero when equal.
  */
-static SSTL_C_UNUSED int sstl_cmp_int_v(const void* a, const void* b) {
+SSTL_C_LOCAL int sstl_cmp_int(const void* a, const void* b) {
   const int av = *(const int*)a;
   const int bv = *(const int*)b;
   return (av > bv) - (av < bv);
 }
+
+/** @brief Backward-compatible alias for the canonical integer comparator hook. */
+SSTL_C_LOCAL int sstl_cmp_int_v(const void* a, const void* b) { return sstl_cmp_int(a, b); }
 
 /**
  * @brief Compare two unsigned integers through the canonical address-based hook shape.
@@ -75,11 +108,14 @@ static SSTL_C_UNUSED int sstl_cmp_int_v(const void* a, const void* b) {
  * @param b Address of the second `unsigned`.
  * @return Negative when first is less, positive when first is greater, zero when equal.
  */
-static SSTL_C_UNUSED int sstl_cmp_uint_v(const void* a, const void* b) {
+SSTL_C_LOCAL int sstl_cmp_uint(const void* a, const void* b) {
   const unsigned av = *(const unsigned*)a;
   const unsigned bv = *(const unsigned*)b;
   return (av > bv) - (av < bv);
 }
+
+/** @brief Backward-compatible alias for the canonical unsigned comparator hook. */
+SSTL_C_LOCAL int sstl_cmp_uint_v(const void* a, const void* b) { return sstl_cmp_uint(a, b); }
 
 /**
  * @brief Compare two `const char*` values without relying on libc.
@@ -87,7 +123,7 @@ static SSTL_C_UNUSED int sstl_cmp_uint_v(const void* a, const void* b) {
  * @param b Address of the second `const char*`.
  * @return Negative, positive, or zero using bytewise lexicographic ordering.
  */
-static SSTL_C_UNUSED int sstl_cmp_str_v(const void* a, const void* b) {
+SSTL_C_LOCAL int sstl_cmp_str(const void* a, const void* b) {
   const char* lhs = *(const char* const*)a;
   const char* rhs = *(const char* const*)b;
   while (lhs && rhs && *lhs && *rhs && *lhs == *rhs) { ++lhs; ++rhs; }
@@ -98,15 +134,21 @@ static SSTL_C_UNUSED int sstl_cmp_str_v(const void* a, const void* b) {
   }
 }
 
+/** @brief Backward-compatible alias for the canonical string comparator hook. */
+SSTL_C_LOCAL int sstl_cmp_str_v(const void* a, const void* b) { return sstl_cmp_str(a, b); }
+
 /**
  * @brief Return true when two addressed `int` objects contain the same value.
  * @param a First operand or first range start.
  * @param b Second operand or second range start.
  * @return True when two addressed `int` objects contain the same value.
  */
-static SSTL_C_UNUSED bool sstl_eq_int_v(const void* a, const void* b) {
+SSTL_C_LOCAL bool sstl_eq_int(const void* a, const void* b) {
   return *(const int*)a == *(const int*)b;
 }
+
+/** @brief Backward-compatible alias for the canonical integer equality hook. */
+SSTL_C_LOCAL bool sstl_eq_int_v(const void* a, const void* b) { return sstl_eq_int(a, b); }
 
 /**
  * @brief Return true when two addressed `unsigned` objects contain the same value.
@@ -114,9 +156,12 @@ static SSTL_C_UNUSED bool sstl_eq_int_v(const void* a, const void* b) {
  * @param b Second operand or second range start.
  * @return True when two addressed `unsigned` objects contain the same value.
  */
-static SSTL_C_UNUSED bool sstl_eq_uint_v(const void* a, const void* b) {
+SSTL_C_LOCAL bool sstl_eq_uint(const void* a, const void* b) {
   return *(const unsigned*)a == *(const unsigned*)b;
 }
+
+/** @brief Backward-compatible alias for the canonical unsigned equality hook. */
+SSTL_C_LOCAL bool sstl_eq_uint_v(const void* a, const void* b) { return sstl_eq_uint(a, b); }
 
 /**
  * @brief Return true when two addressed `const char*` objects name equal strings.
@@ -124,9 +169,12 @@ static SSTL_C_UNUSED bool sstl_eq_uint_v(const void* a, const void* b) {
  * @param b Second operand or second range start.
  * @return True when two addressed `const char*` objects name equal strings.
  */
-static SSTL_C_UNUSED bool sstl_eq_str_v(const void* a, const void* b) {
-  return sstl_cmp_str_v(a, b) == 0;
+SSTL_C_LOCAL bool sstl_eq_str(const void* a, const void* b) {
+  return sstl_cmp_str(a, b) == 0;
 }
+
+/** @brief Backward-compatible alias for the canonical string equality hook. */
+SSTL_C_LOCAL bool sstl_eq_str_v(const void* a, const void* b) { return sstl_eq_str(a, b); }
 
 /**
  * @brief Hash a raw byte span with the FNV-1a algorithm.
@@ -134,7 +182,7 @@ static SSTL_C_UNUSED bool sstl_eq_str_v(const void* a, const void* b) {
  * @param n Number of bytes to include.
  * @return Deterministic non-cryptographic hash value.
  */
-static SSTL_C_UNUSED size_t sstl_hash_bytes_v(const void* data, size_t n) {
+SSTL_C_LOCAL size_t sstl_hash_bytes_v(const void* data, size_t n) {
   const unsigned char* p = (const unsigned char*)data;
   size_t h = (size_t)2166136261u;
   while (n--) { h ^= (size_t)*p++; h *= (size_t)16777619u; }
@@ -142,104 +190,56 @@ static SSTL_C_UNUSED size_t sstl_hash_bytes_v(const void* data, size_t n) {
 }
 
 /**
+ * @brief Hash an addressed object through the canonical one-argument hook shape.
+ * @param value Address of the object to hash.
+ * @return Deterministic non-cryptographic hash value.
+ *
+ * The C hook signature does not carry an object size, so this generic helper
+ * hashes the supplied address value. Type-specific public hash hooks below use
+ * the same FNV-1a byte primitive with their known object sizes.
+ */
+SSTL_C_LOCAL size_t sstl_hash_bytes(const void* value) {
+  return sstl_hash_bytes_v(&value, sizeof(value));
+}
+
+/**
  * @brief Hash one addressed `int` object through the canonical one-argument hook.
  * @param value Value supplied for comparison, assignment, insertion, or lookup.
  * @return Result described by the function brief.
  */
-static SSTL_C_UNUSED size_t sstl_hash_int_v(const void* value) {
+SSTL_C_LOCAL size_t sstl_hash_int(const void* value) {
   return sstl_hash_bytes_v(value, sizeof(int));
 }
+
+/** @brief Backward-compatible alias for the canonical integer hash hook. */
+SSTL_C_LOCAL size_t sstl_hash_int_v(const void* value) { return sstl_hash_int(value); }
 
 /**
  * @brief Hash one addressed `unsigned` object through the canonical one-argument hook.
  * @param value Value supplied for comparison, assignment, insertion, or lookup.
  * @return Result described by the function brief.
  */
-static SSTL_C_UNUSED size_t sstl_hash_uint_v(const void* value) {
+SSTL_C_LOCAL size_t sstl_hash_uint(const void* value) {
   return sstl_hash_bytes_v(value, sizeof(unsigned));
 }
+
+/** @brief Backward-compatible alias for the canonical unsigned hash hook. */
+SSTL_C_LOCAL size_t sstl_hash_uint_v(const void* value) { return sstl_hash_uint(value); }
 
 /**
  * @brief Hash one addressed `const char*` object by the bytes in the pointed string.
  * @param value Value supplied for comparison, assignment, insertion, or lookup.
  * @return Result described by the function brief.
  */
-static SSTL_C_UNUSED size_t sstl_hash_str_v(const void* value) {
+SSTL_C_LOCAL size_t sstl_hash_str(const void* value) {
   const char* s = *(const char* const*)value;
   size_t h = (size_t)2166136261u;
   while (s && *s) { h ^= (size_t)(unsigned char)*s++; h *= (size_t)16777619u; }
   return h;
 }
 
-/* LCOV_EXCL_START: deprecated compatibility wrappers are intentionally not exercised by internal tests. */
-/**
- * @brief Deprecated value-based integer comparator retained for temporary compatibility.
- * @param a First operand or first range start.
- * @param b Second operand or second range start.
- * @return Result described by the function brief.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED int sstl_cmp_int(int a, int b) { return (a > b) - (a < b); }
-
-/**
- * @brief Deprecated value-based unsigned comparator retained for temporary compatibility.
- * @param a First operand or first range start.
- * @param b Second operand or second range start.
- * @return Result described by the function brief.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED int sstl_cmp_uint(unsigned a, unsigned b) { return (a > b) - (a < b); }
-
-/**
- * @brief Deprecated value-based string comparator retained for temporary compatibility.
- * @param a First operand or first range start.
- * @param b Second operand or second range start.
- * @return Result described by the function brief.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED int sstl_cmp_str(const char* a, const char* b) {
-  while (a && b && *a && *b && *a == *b) { ++a; ++b; }
-  {
-    const unsigned char ac = (unsigned char)(a ? *a : 0);
-    const unsigned char bc = (unsigned char)(b ? *b : 0);
-    return (ac > bc) - (ac < bc);
-  }
-}
-
-/**
- * @brief Deprecated value-based integer equality hook retained for temporary compatibility.
- * @param a First operand or first range start.
- * @param b Second operand or second range start.
- * @return `true` when the documented condition holds; otherwise `false`.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED bool sstl_eq_int(int a, int b) { return a == b; }
-
-/**
- * @brief Deprecated value-based unsigned equality hook retained for temporary compatibility.
- * @param a First operand or first range start.
- * @param b Second operand or second range start.
- * @return `true` when the documented condition holds; otherwise `false`.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED bool sstl_eq_uint(unsigned a, unsigned b) { return a == b; }
-
-/**
- * @brief Deprecated value-based string equality hook retained for temporary compatibility.
- * @param a First operand or first range start.
- * @param b Second operand or second range start.
- * @return `true` when the documented condition holds; otherwise `false`.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED bool sstl_eq_str(const char* a, const char* b) {
-  while (a && b && *a && *b && *a == *b) { ++a; ++b; }
-  return (a ? *a : 0) == (b ? *b : 0);
-}
-
-/**
- * @brief Deprecated two-argument byte hash retained for temporary compatibility.
- * @param data Caller-supplied argument used by this operation.
- * @param n Requested count or size.
- * @return Result described by the function brief.
- */
-static SSTL_C_UNUSED SSTL_C_DEPRECATED unsigned sstl_hash_bytes(const void* data, size_t n) {
-  return (unsigned)sstl_hash_bytes_v(data, n);
-}
-/* LCOV_EXCL_STOP */
+/** @brief Backward-compatible alias for the canonical string hash hook. */
+SSTL_C_LOCAL size_t sstl_hash_str_v(const void* value) { return sstl_hash_str(value); }
 
 /** @brief Error policy: invalid C API calls report through `sstl_panic`. */
 #define SSTL_PANIC 1
@@ -333,7 +333,7 @@ extern "C" inline void sstl_panic(const char* msg) { (void)msg; SSTL_TRAP(); } /
  * @brief Header-local default panic hook used when applications do not provide one.
  * @param msg Diagnostic text passed to the panic hook.
  */
-static SSTL_C_UNUSED void sstl_panic(const char* msg) { (void)msg; SSTL_TRAP(); } /* LCOV_EXCL_LINE: the default hook intentionally terminates the process. */
+SSTL_C_LOCAL void sstl_panic(const char* msg) { (void)msg; SSTL_TRAP(); } /* LCOV_EXCL_LINE: the default hook intentionally terminates the process. */
 #endif
 /** @def SSTL_PANIC_HOOK_DEFINED
  * @brief Marks that a compatible default panic hook was already supplied.

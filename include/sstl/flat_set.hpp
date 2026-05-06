@@ -26,14 +26,14 @@ public:
   public:
     /** @brief Stored key type exposed by this iterator. */
     typedef K value_type;
-    /** @brief Mutable key reference exposed by this iterator. */
-    typedef K& reference;
-    /** @brief Mutable key pointer exposed by this iterator. */
-    typedef K* pointer;
+    /** @brief Const key reference exposed by this iterator. */
+    typedef const K& reference;
+    /** @brief Const key pointer exposed by this iterator. */
+    typedef const K* pointer;
     /** @brief Signed difference type used by generic iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
-    typedef forward_iterator_tag iterator_category;
+    typedef bidirectional_iterator_tag iterator_category;
 
     /** @brief Construct a null iterator. */
     iterator() : it_() {}
@@ -41,14 +41,14 @@ public:
      * @brief Dereference the current key.
      * @return Result described by the function brief.
      */
-    K& operator*() const { return it_->first; }
+    const K& operator*() const { return it_->first; }
     /**
      * @brief Return a pointer to the current key.
      * @return A pointer to the current key.
      */
-    K* operator->() const { return &it_->first; }
-    /** @brief Convert to a key pointer for legacy pointer-style flat-set code. */
-    operator K*() const { return &it_->first; }
+    const K* operator->() const { return &it_->first; }
+    /** @brief Convert to a const key pointer for legacy pointer-style flat-set code. */
+    operator const K*() const { return &it_->first; }
     /**
      * @brief Advance to the next key.
      * @return Result described by the function brief.
@@ -59,6 +59,10 @@ public:
      * @return Result described by the function brief.
      */
     iterator operator++(int) { iterator old(*this); ++*this; return old; }
+    /** @brief Move to the previous key. */
+    iterator& operator--() { --it_; return *this; }
+    /** @brief Post-decrement and return the previous iterator value. */
+    iterator operator--(int) { iterator old(*this); --*this; return old; }
     /**
      * @brief Compare underlying flat-map iterators for equality.
      * @param other Other object participating in the operation.
@@ -73,7 +77,9 @@ public:
     bool operator!=(const iterator& other) const { return !(*this == other); }
 
   private:
+    /** @brief Allow the owning flat_set to construct and inspect mutable iterators. */
     friend class flat_set;
+    /** @brief Allow const iterators to copy mutable iterator internals. */
     friend class const_iterator;
     /**
      * @brief Construct from the underlying flat-map iterator.
@@ -94,9 +100,9 @@ public:
     /** @brief Const key pointer exposed by this iterator. */
     typedef const K* pointer;
     /** @brief Signed difference type used by generic iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
-    typedef forward_iterator_tag iterator_category;
+    typedef bidirectional_iterator_tag iterator_category;
 
     /** @brief Construct a null const iterator. */
     const_iterator() : it_() {}
@@ -127,6 +133,10 @@ public:
      * @return Result described by the function brief.
      */
     const_iterator operator++(int) { const_iterator old(*this); ++*this; return old; }
+    /** @brief Move to the previous key. */
+    const_iterator& operator--() { --it_; return *this; }
+    /** @brief Post-decrement and return the previous iterator value. */
+    const_iterator operator--(int) { const_iterator old(*this); --*this; return old; }
     /**
      * @brief Compare underlying flat-map iterators for equality.
      * @param other Other object participating in the operation.
@@ -141,6 +151,7 @@ public:
     bool operator!=(const const_iterator& other) const { return !(*this == other); }
 
   private:
+    /** @brief Allow the owning flat_set to construct and inspect const iterators. */
     friend class flat_set;
     /**
      * @brief Construct from the underlying flat-map const iterator.
@@ -153,6 +164,18 @@ public:
 
   /** @brief Unsigned size type for fixed-capacity counts. */
   typedef size_t size_type;
+  /** @brief Key type stored by the flat set. */
+  typedef K key_type;
+  /** @brief Value type exposed by the flat set. */
+  typedef K value_type;
+  /** @brief Key comparison predicate type. */
+  typedef Compare key_compare;
+  /** @brief Value comparison predicate type. */
+  typedef Compare value_compare;
+  /** @brief Mutable reverse iterator over sorted keys. */
+  typedef reverse_iterator_adaptor<iterator> reverse_iterator;
+  /** @brief Const reverse iterator over sorted keys. */
+  typedef reverse_iterator_adaptor<const_iterator> const_reverse_iterator;
 
   /**
    * @brief Insert `key` if absent and return iterator plus success flag.
@@ -162,6 +185,18 @@ public:
   pair<iterator, bool> insert(const K& key) {
     pair<typename impl_type::iterator, bool> result = impl_.insert(make_pair(key, char()));
     return make_pair(iterator(result.first), result.second);
+  }
+
+  /** @brief Insert `key` using `hint` as a non-binding placement hint. */
+  iterator insert(iterator hint, const K& key) {
+    (void)hint;
+    return insert(key).first;
+  }
+
+  /** @brief Insert every key in the half-open input range. */
+  template <class InputIt>
+  void insert(InputIt first, InputIt last) {
+    for (; first != last; ++first) (void)insert(*first);
   }
 
   /**
@@ -177,6 +212,30 @@ public:
    * @return Const iterator to `key`, or `end()` when absent.
  */
   const_iterator find(const K& key) const { return const_iterator(impl_.find(key)); }
+
+  /** @brief Return an iterator to the first key not less than `key`. */
+  iterator lower_bound(const K& key) { return iterator(impl_.lower_bound(key)); }
+
+  /** @brief Return a const iterator to the first key not less than `key`. */
+  const_iterator lower_bound(const K& key) const { return const_iterator(impl_.lower_bound(key)); }
+
+  /** @brief Return an iterator to the first key greater than `key`. */
+  iterator upper_bound(const K& key) { return iterator(impl_.upper_bound(key)); }
+
+  /** @brief Return a const iterator to the first key greater than `key`. */
+  const_iterator upper_bound(const K& key) const { return const_iterator(impl_.upper_bound(key)); }
+
+  /** @brief Return the half-open range of keys equivalent to `key`. */
+  pair<iterator, iterator> equal_range(const K& key) {
+    pair<typename impl_type::iterator, typename impl_type::iterator> r = impl_.equal_range(key);
+    return make_pair(iterator(r.first), iterator(r.second));
+  }
+
+  /** @brief Return the const half-open range of keys equivalent to `key`. */
+  pair<const_iterator, const_iterator> equal_range(const K& key) const {
+    pair<typename impl_type::const_iterator, typename impl_type::const_iterator> r = impl_.equal_range(key);
+    return make_pair(const_iterator(r.first), const_iterator(r.second));
+  }
 
   /**
    * @brief Erase one key and return the number of removed elements.
@@ -198,6 +257,11 @@ public:
     return iterator(impl_.erase(pos.it_));
   }
 
+  /** @brief Erase the half-open range `[first,last)`. */
+  iterator erase(iterator first, iterator last) {
+    return iterator(impl_.erase(first.it_, last.it_));
+  }
+
   /**
    * @brief Return an iterator to the first sorted key.
    * @return An iterator to the first sorted key.
@@ -209,6 +273,8 @@ public:
    * @return A const iterator to the first sorted key.
    */
   const_iterator begin() const { return const_iterator(impl_.begin()); }
+  /** @brief Return a const iterator to the first sorted key. */
+  const_iterator cbegin() const { return begin(); }
 
   /**
    * @brief Return the null-style end iterator.
@@ -220,6 +286,20 @@ public:
    * @return The const end iterator.
    */
   const_iterator end() const { return const_iterator(impl_.end()); }
+  /** @brief Return a const iterator one past the final sorted key. */
+  const_iterator cend() const { return end(); }
+  /** @brief Return a mutable reverse iterator to the final sorted key. */
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+  /** @brief Return a const reverse iterator to the final sorted key. */
+  const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+  /** @brief Return a const reverse iterator to the final sorted key. */
+  const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
+  /** @brief Return a mutable reverse iterator one before the first sorted key. */
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+  /** @brief Return a const reverse iterator one before the first sorted key. */
+  const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+  /** @brief Return a const reverse iterator one before the first sorted key. */
+  const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
   /**
    * @brief Return the number of stored keys.
    * @return The number of stored keys.
@@ -245,6 +325,14 @@ public:
    * @return `true` when the documented condition holds; otherwise `false`.
    */
   bool full() const { return impl_.full(); }
+  /** @brief Destroy all stored keys. */
+  void clear() { impl_.clear(); }
+  /** @brief Return one when `key` is present and zero otherwise. */
+  size_type count(const K& key) const { return impl_.count(key); }
+  /** @brief Return the key comparison predicate. */
+  key_compare key_comp() const { return impl_.key_comp(); }
+  /** @brief Return the value comparison predicate. */
+  value_compare value_comp() const { return impl_.key_comp(); }
   /**
    * @brief Exchange contents with another same-capacity flat set without external allocation.
    * @param other Other object participating in the operation.
@@ -265,6 +353,46 @@ template <class K, size_t N, class Compare>
 inline void swap(flat_set<K, N, Compare>& lhs, flat_set<K, N, Compare>& rhs) {
   lhs.swap(rhs);
 }
+
+/** @brief Compare two flat sets for element-wise equality across capacities. */
+template <class K, size_t N, size_t M, class Compare>
+inline bool operator==(const flat_set<K, N, Compare>& lhs, const flat_set<K, M, Compare>& rhs) {
+  if (lhs.size() != rhs.size()) return false;
+  typename flat_set<K, N, Compare>::const_iterator a = lhs.begin();
+  typename flat_set<K, M, Compare>::const_iterator b = rhs.begin();
+  for (; a != lhs.end(); ++a, ++b) {
+    if (!(*a == *b)) return false;
+  }
+  return true;
+}
+
+/** @brief Compare two flat sets for inequality. */
+template <class K, size_t N, size_t M, class Compare>
+inline bool operator!=(const flat_set<K, N, Compare>& lhs, const flat_set<K, M, Compare>& rhs) { return !(lhs == rhs); }
+
+/** @brief Lexicographically compare two flat sets. */
+template <class K, size_t N, size_t M, class Compare>
+inline bool operator<(const flat_set<K, N, Compare>& lhs, const flat_set<K, M, Compare>& rhs) {
+  typename flat_set<K, N, Compare>::const_iterator a = lhs.begin();
+  typename flat_set<K, M, Compare>::const_iterator b = rhs.begin();
+  for (; a != lhs.end() && b != rhs.end(); ++a, ++b) {
+    if (*a < *b) return true;
+    if (*b < *a) return false;
+  }
+  return a == lhs.end() && b != rhs.end();
+}
+
+/** @brief Return true when `lhs` is not lexicographically greater than `rhs`. */
+template <class K, size_t N, size_t M, class Compare>
+inline bool operator<=(const flat_set<K, N, Compare>& lhs, const flat_set<K, M, Compare>& rhs) { return !(rhs < lhs); }
+
+/** @brief Return true when `lhs` is lexicographically greater than `rhs`. */
+template <class K, size_t N, size_t M, class Compare>
+inline bool operator>(const flat_set<K, N, Compare>& lhs, const flat_set<K, M, Compare>& rhs) { return rhs < lhs; }
+
+/** @brief Return true when `lhs` is not lexicographically less than `rhs`. */
+template <class K, size_t N, size_t M, class Compare>
+inline bool operator>=(const flat_set<K, N, Compare>& lhs, const flat_set<K, M, Compare>& rhs) { return !(lhs < rhs); }
 
 } // namespace sstl
 

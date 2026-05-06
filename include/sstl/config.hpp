@@ -21,6 +21,21 @@
  * checks such as `#if SSTL_ON_ERROR == SSTL_RETURN`.
  */
 
+/**
+ * @dir include
+ * @brief Public include tree for SSTL headers.
+ */
+
+/**
+ * @dir include/sstl
+ * @brief Public C++03 SSTL header directory.
+ */
+
+/**
+ * @dir include/sstl/c
+ * @brief Public C99 SSTL header directory.
+ */
+
 #include <stddef.h>
 #include <new>
 
@@ -119,10 +134,12 @@
 # define SSTL_TEST_ITERATOR_IS_VALID(container, iterator) ((container).is_valid_iterator(iterator))
 #endif
 
+#ifndef SSTL_STATIC_ASSERT
 /** @brief C++03-compatible static assertion with a caller-supplied diagnostic token. */
 #define SSTL_STATIC_ASSERT(cond, name) \
   typedef char sstl_static_assert_##name[(cond) ? 1 : -1]; \
   enum { sstl_static_assert_use_##name = sizeof(sstl_static_assert_##name) }
+#endif
 
 #if SSTL_ON_ERROR == SSTL_PANIC && !defined(SSTL_NO_DEFAULT_PANIC) && !defined(SSTL_PANIC_HOOK_DEFINED)
 /*
@@ -185,6 +202,112 @@ inline void handle_error(const char* msg) {
 #endif
 }
 
+/* LCOV_EXCL_START: fail_* helpers intentionally terminate for non-sentinel contracts. */
+/**
+ * @brief Report a contract violation for APIs that cannot return a sentinel.
+ * @param msg Static diagnostic string identifying the failed operation.
+ *
+ * Reference-returning and value-returning APIs such as `front()`, `at()`,
+ * `operator[]`, `optional::value()`, and `variant::get<I>()` cannot express
+ * recoverable failure through their return type. Under RETURN policy, callers
+ * must use the corresponding `try_*` API for sentinel/status behavior. This
+ * helper guarantees invalid calls never silently continue into non-live storage
+ * or shared fallback objects.
+ */
+inline void fail_contract(const char* msg) {
+  handle_error(msg);
+  SSTL_TRAP();
+}
+
+/**
+ * @brief Fail a contract for an API whose signature requires `T&`.
+ * @tparam T Referenced object type.
+ * @param msg Static diagnostic string identifying the failed operation.
+ * @return Never returns.
+ */
+template <class T>
+inline T& fail_reference(const char* msg) {
+  fail_contract(msg);
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wnull-dereference"
+#endif
+  return *static_cast<T*>(0);
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#endif
+}
+
+/**
+ * @brief Return adapter used by fail_value for non-reference return types.
+ * @tparam T Value return type.
+ */
+template <class T>
+struct fail_value_return {
+  /**
+   * @brief Fail the active contract and satisfy a value-returning signature.
+   * @param msg Static diagnostic string identifying the failed operation.
+   * @return Never returns.
+   */
+  static T get(const char* msg) {
+    fail_contract(msg);
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wnull-dereference"
+#endif
+    return *static_cast<T*>(0);
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#endif
+  }
+};
+
+/**
+ * @brief Return adapter used by fail_value for reference return types.
+ * @tparam T Referenced object type.
+ */
+template <class T>
+struct fail_value_return<T&> {
+  /**
+   * @brief Fail the active contract and satisfy a reference-returning signature.
+   * @param msg Static diagnostic string identifying the failed operation.
+   * @return Never returns.
+   */
+  static T& get(const char* msg) {
+    return fail_reference<T>(msg);
+  }
+};
+
+/** @brief Return adapter used by fail_value for void return types. */
+template <>
+struct fail_value_return<void> {
+  /**
+   * @brief Fail the active contract and satisfy a void-returning signature.
+   * @param msg Static diagnostic string identifying the failed operation.
+   */
+  static void get(const char* msg) {
+    fail_contract(msg);
+  }
+};
+
+/**
+ * @brief Fail a contract for an API whose signature requires a value return.
+ * @tparam T Return type.
+ * @param msg Static diagnostic string identifying the failed operation.
+ * @return Never returns.
+ */
+template <class T>
+inline T fail_value(const char* msg) {
+  return fail_value_return<T>::get(msg);
+}
+
+/** @brief Void specialization for fail_value. */
+template <>
+inline void fail_value<void>(const char* msg) {
+  fail_value_return<void>::get(msg);
+}
+/* LCOV_EXCL_STOP */
+
 /**
  * @brief Construct an object in caller-owned raw storage.
  * @tparam T Object type to construct.
@@ -195,6 +318,30 @@ inline void handle_error(const char* msg) {
 template <class T>
 inline T* construct_at(void* p, const T& value) {
   return new (p) T(value);
+}
+
+/**
+ * @brief Construct an object through typed caller-owned raw storage.
+ * @tparam T Object type to construct.
+ * @param p Suitably aligned typed storage large enough for `T`.
+ * @param value Source value copied into the new object.
+ * @return Pointer to the constructed object.
+ */
+template <class T>
+inline T* construct_at(T* p, const T& value) {
+  return new (static_cast<void*>(p)) T(value);
+}
+
+/**
+ * @brief Construct a const object through typed caller-owned raw storage.
+ * @tparam T Object type to construct.
+ * @param p Suitably aligned typed storage large enough for `T`.
+ * @param value Source value copied into the new object.
+ * @return Pointer to the constructed object.
+ */
+template <class T>
+inline const T* construct_at(const T* p, const T& value) {
+  return new (const_cast<void*>(static_cast<const void*>(p))) const T(value);
 }
 
 /**
@@ -356,23 +503,55 @@ struct equal_to {
   bool operator()(const T& a, const T& b) const { return a == b; }
 };
 
-/** @brief Byte-wise FNV-1a hash fallback for trivially inspectable values. */
+/** @brief Primary hash template. Only documented SSTL hash specializations are defined. */
 template <class T>
-struct hash {
-  /**
-   * @brief Hash the object representation of `v` without allocating.
-   * @return Result described by the function brief.
-   * @param v Value or object being inspected.
-   */
-  unsigned operator()(const T& v) const {
-    const unsigned char* p = reinterpret_cast<const unsigned char*>(&v);
-    unsigned h = 2166136261u;
-    for (unsigned i = 0; i != sizeof(T); ++i) {
-      h ^= p[i];
-      h *= 16777619u;
-    }
-    return h;
+struct hash;
+
+/** @brief Hash an unsigned integer value with FNV-1a over its stable value bytes. */
+inline unsigned hash_unsigned_long_value(unsigned long v) {
+  unsigned h = 2166136261u;
+  for (unsigned i = 0u; i != sizeof(v); ++i) {
+    h ^= static_cast<unsigned char>((v >> (i * 8u)) & 0xffu);
+    h *= 16777619u;
   }
+  return h;
+}
+
+/** @brief Hash a pointer object representation with FNV-1a. */
+template <class T>
+inline unsigned hash_pointer_value(T* p) {
+  const unsigned char* bytes = reinterpret_cast<const unsigned char*>(&p);
+  unsigned h = 2166136261u;
+  for (unsigned i = 0u; i != sizeof(p); ++i) {
+    h ^= bytes[i];
+    h *= 16777619u;
+  }
+  return h;
+}
+
+#define SSTL_DEFINE_INTEGRAL_HASH(type_name) \
+template <> \
+struct hash<type_name> { \
+  unsigned operator()(type_name v) const { return hash_unsigned_long_value(static_cast<unsigned long>(v)); } \
+}
+
+SSTL_DEFINE_INTEGRAL_HASH(bool);
+SSTL_DEFINE_INTEGRAL_HASH(char);
+SSTL_DEFINE_INTEGRAL_HASH(signed char);
+SSTL_DEFINE_INTEGRAL_HASH(unsigned char);
+SSTL_DEFINE_INTEGRAL_HASH(short);
+SSTL_DEFINE_INTEGRAL_HASH(unsigned short);
+SSTL_DEFINE_INTEGRAL_HASH(int);
+SSTL_DEFINE_INTEGRAL_HASH(unsigned);
+SSTL_DEFINE_INTEGRAL_HASH(long);
+SSTL_DEFINE_INTEGRAL_HASH(unsigned long);
+
+#undef SSTL_DEFINE_INTEGRAL_HASH
+
+/** @brief Hash specialization for object pointers. */
+template <class T>
+struct hash<T*> {
+  unsigned operator()(T* p) const { return hash_pointer_value(p); }
 };
 
 /**

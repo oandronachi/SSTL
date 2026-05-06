@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file forward_list.hpp
  * @brief Fixed-capacity singly linked list with a static node pool.
  *
@@ -14,12 +14,14 @@
 
 #include "config.hpp"
 #include "iterator.hpp"
+#include "type_traits.hpp"
 
 namespace sstl {
 
 /** @brief Fixed-capacity singly linked list backed by an inline node pool. */
 template <class T, size_t N>
 class forward_list {
+  /** @brief Allow forward_list specializations to access node and iterator internals. */
   template <class, size_t> friend class forward_list;
 
   /** @brief Pool node containing one value plus a forward link. */
@@ -53,7 +55,7 @@ public:
     /** @brief Mutable pointer returned by arrow access. */
     typedef T* pointer;
     /** @brief Signed distance type used by iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
     typedef forward_iterator_tag iterator_category;
 
@@ -97,6 +99,7 @@ public:
     bool operator!=(const iterator& other) const { return !(*this == other); }
 
   private:
+    /** @brief Allow forward_list specializations to construct and inspect mutable iterators. */
     template <class, size_t> friend class forward_list;
     /** @brief Current node, or null for `end()` and `before_begin()`. */
     node* n_;
@@ -114,7 +117,7 @@ public:
     /** @brief Const pointer returned by arrow access. */
     typedef const T* pointer;
     /** @brief Signed distance type used by iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
     typedef forward_iterator_tag iterator_category;
 
@@ -163,6 +166,7 @@ public:
     bool operator!=(const const_iterator& other) const { return !(*this == other); }
 
   private:
+    /** @brief Allow forward_list specializations to construct and inspect const iterators. */
     template <class, size_t> friend class forward_list;
     /** @brief Current node, or null for `end()` and `before_begin()`. */
     const node* n_;
@@ -216,6 +220,11 @@ public:
  */
   const_iterator before_begin() const { return const_iterator(0, true); }
 /**
+ * @brief Return the const sentinel iterator that precedes the first element.
+ * @return The const sentinel iterator that precedes the first element.
+ */
+  const_iterator cbefore_begin() const { return before_begin(); }
+/**
  * @brief Return an iterator to the first element.
  * @return An iterator to the first element.
  */
@@ -226,6 +235,11 @@ public:
  */
   const_iterator begin() const { return const_iterator(head_, false); }
 /**
+ * @brief Return a const iterator to the first element.
+ * @return A const iterator to the first element.
+ */
+  const_iterator cbegin() const { return begin(); }
+/**
  * @brief Return an iterator one past the final element.
  * @return An iterator one past the final element.
  */
@@ -235,6 +249,11 @@ public:
  * @return An iterator one past the final element.
  */
   const_iterator end() const { return const_iterator(0, false); }
+/**
+ * @brief Return a const iterator one past the final element.
+ * @return A const iterator one past the final element.
+ */
+  const_iterator cend() const { return end(); }
 /**
  * @brief Report whether no elements are live.
  * @return `true` when the documented condition holds; otherwise `false`.
@@ -264,12 +283,12 @@ public:
  * @brief Access the first element.
  * @return Result described by the function brief.
  */
-  T& front() { return head_->get(); }
+  T& front() { return head_ ? head_->get() : fail_reference<T>("forward_list::front empty"); } // LCOV_EXCL_BR_LINE
 /**
  * @brief Access the first element.
  * @return Result described by the function brief.
  */
-  const T& front() const { return head_->get(); }
+  const T& front() const { return head_ ? head_->get() : fail_reference<const T>("forward_list::front empty"); } // LCOV_EXCL_BR_LINE
 /**
  * @brief Return a pointer to the first element, or null when empty.
  * @return A pointer to the first element, or null when empty.
@@ -301,7 +320,9 @@ public:
   }
 
 /** @brief Remove the first element, routing empty-list errors through the active policy. */
-  void pop_front() { (void)try_pop_front(0); }
+  void pop_front() {
+    if (!try_pop_front(0)) handle_error("forward_list::pop_front empty");
+  }
 
 /**
  * @brief Remove the first element and optionally copy it to `out` under RETURN-style handling.
@@ -351,6 +372,10 @@ public:
  * @return Result described by the function brief.
  */
   iterator insert_after(iterator pos, const T& x) {
+    if (!is_insert_after_position(pos)) {
+      handle_error("forward_list::insert_after iterator");
+      return end();
+    }
     node* n = allocate(x);
     if (!n) return end();
     if (pos.before_) {
@@ -359,13 +384,41 @@ public:
     } else if (pos.n_) {
       n->next = pos.n_->next;
       pos.n_->next = n;
-    } else {
-      SSTL_DESTROY_AT(n->value.ptr(0));
-      release_destroyed_node(n);
-      return end();
     }
     ++size_;
     return iterator(n, false);
+  }
+
+/**
+ * @brief Insert `count` copies of `x` after `pos`.
+ * @param pos Position after which values are inserted.
+ * @param count Requested element count.
+ * @param x Element value supplied by the caller.
+ * @return Iterator to the last inserted element, or `end()` on failure.
+ */
+  iterator insert_after(iterator pos, size_type count, const T& x) {
+    if (!is_insert_after_position(pos) || count > N - size_) {
+      handle_error("forward_list::insert_after count");
+      return end();
+    }
+    iterator current = pos;
+    for (size_type i = 0u; i != count; ++i) {
+      current = insert_after(current, x);
+      if (current == end()) return end(); // LCOV_EXCL_BR_LINE
+    }
+    return current;
+  }
+
+/**
+ * @brief Insert a range of values after `pos`.
+ * @param pos Position after which values are inserted.
+ * @param first Start of the half-open input range.
+ * @param last One-past-end of the input range.
+ * @return Iterator to the last inserted element, or `end()` on failure.
+ */
+  template <class InputIt>
+  iterator insert_after(iterator pos, InputIt first, InputIt last) {
+    return insert_after_dispatch(pos, first, last, bool_constant<is_integral<InputIt>::value>());
   }
 
 /**
@@ -375,7 +428,7 @@ public:
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
   iterator try_insert_after(iterator pos, const T& x) {
-    if (full()) return end();
+    if (full() || !is_insert_after_position(pos)) return end();
     return insert_after(pos, x);
   }
 
@@ -386,9 +439,16 @@ public:
  */
   iterator erase_after(iterator pos) {
     node* target = 0;
+    if (!is_insert_after_position(pos)) {
+      handle_error("forward_list::erase_after iterator");
+      return end();
+    }
     if (pos.before_) target = head_;
     else if (pos.n_) target = pos.n_->next;
-    if (!target) return end();
+    if (!target) {
+      handle_error("forward_list::erase_after iterator");
+      return end();
+    }
     node* after = target->next;
     if (pos.before_) head_ = after;
     else pos.n_->next = after;
@@ -399,14 +459,38 @@ public:
   }
 
 /**
+ * @brief Erase the half-open range after `first` and before `last`.
+ * @param first Position before the first erased element.
+ * @param last One-past-end position that stops erasure.
+ * @return Iterator naming `last` after erasure.
+ */
+  iterator erase_after(iterator first, iterator last) {
+    if (!is_valid_after_range(first, last)) {
+      handle_error("forward_list::erase_after range");
+      return end();
+    }
+    while (next_after(first) && iterator(next_after(first), false) != last) {
+      (void)erase_after(first);
+    }
+    return iterator(last.n_, false);
+  }
+
+/**
  * @brief Transfer elements after a forward-list position.
  * @param pos Zero-based logical position.
  * @param other Other object participating in the operation.
  * @return `true` when the documented condition holds; otherwise `false`.
  */
   bool splice_after(iterator pos, forward_list& other) {
+    if (!is_insert_after_position(pos)) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
     if (this == &other || other.empty()) return true;
-    if (N - size_ < other.size_) return false;
+    if (N - size_ < other.size_) {
+      handle_error("forward_list::splice_after full");
+      return false;
+    }
     iterator insert_pos = pos;
     for (iterator it = other.begin(); it != other.end(); ++it) insert_pos = insert_after(insert_pos, *it);
     other.clear();
@@ -419,7 +503,15 @@ public:
  * @param other Other object participating in the operation.
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
-  bool try_splice_after(iterator pos, forward_list& other) { return splice_after(pos, other); }
+  bool try_splice_after(iterator pos, forward_list& other) {
+    if (!is_insert_after_position(pos)) return false;
+    if (this == &other || other.empty()) return true;
+    if (N - size_ < other.size_) return false;
+    iterator insert_pos = pos;
+    for (iterator it = other.begin(); it != other.end(); ++it) insert_pos = insert_after(insert_pos, *it);
+    other.clear();
+    return true;
+  }
 
 /**
  * @brief Transfer elements after a forward-list position.
@@ -429,7 +521,14 @@ public:
  */
   template <size_t M>
   bool splice_after(iterator pos, forward_list<T, M>& other) {
-    if (N - size_ < other.size_) return false;
+    if (!is_insert_after_position(pos)) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
+    if (N - size_ < other.size_) {
+      handle_error("forward_list::splice_after full");
+      return false;
+    }
     iterator insert_pos = pos;
     for (typename forward_list<T, M>::iterator it = other.begin(); it != other.end(); ++it) {
       insert_pos = insert_after(insert_pos, *it);
@@ -445,7 +544,17 @@ public:
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
   template <size_t M>
-  bool try_splice_after(iterator pos, forward_list<T, M>& other) { return splice_after(pos, other); }
+  bool try_splice_after(iterator pos, forward_list<T, M>& other) {
+    if (!is_insert_after_position(pos)) return false;
+    if (other.empty()) return true;
+    if (N - size_ < other.size_) return false;
+    iterator insert_pos = pos;
+    for (typename forward_list<T, M>::iterator it = other.begin(); it != other.end(); ++it) {
+      insert_pos = insert_after(insert_pos, *it);
+    }
+    other.clear();
+    return true;
+  }
 
 /**
  * @brief Transfer elements after a forward-list position.
@@ -455,17 +564,27 @@ public:
  * @return `true` when the documented condition holds; otherwise `false`.
  */
   bool splice_after(iterator pos, forward_list& other, iterator before) {
+    if (!is_insert_after_position(pos) || !other.is_insert_after_position(before)) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
     node* moving = before.before_ ? other.head_ : (before.n_ ? before.n_->next : 0);
-    if (!moving) return true;
+    if (!moving) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
     if (this == &other) {
       if (pos.n_ == moving || pos.n_ == before.n_) return true;
       other.unlink_after(before);
       link_after(pos, moving);
       return true;
     }
-    if (full()) return false;
+    if (full()) {
+      handle_error("forward_list::splice_after full");
+      return false;
+    }
     T value = moving->get();
-    if (insert_after(pos, value) == end()) return false;
+    if (insert_after(pos, value) == end()) return false; // LCOV_EXCL_BR_LINE
     other.unlink_after_and_destroy(before);
     return true;
   }
@@ -478,7 +597,81 @@ public:
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
   bool try_splice_after(iterator pos, forward_list& other, iterator before) {
-    return splice_after(pos, other, before);
+    if (!is_insert_after_position(pos) || !other.is_insert_after_position(before)) return false;
+    if (!other.next_after(before)) return false;
+    node* moving = before.before_ ? other.head_ : (before.n_ ? before.n_->next : 0);
+    if (this == &other) {
+      if (pos.n_ == moving || pos.n_ == before.n_) return true;
+      other.unlink_after(before);
+      link_after(pos, moving);
+      return true;
+    }
+    if (full()) return false;
+    T value = moving->get();
+    if (insert_after(pos, value) == end()) return false; // LCOV_EXCL_BR_LINE
+    other.unlink_after_and_destroy(before);
+    return true;
+  }
+
+/**
+ * @brief Transfer a half-open range after a forward-list position.
+ * @param pos Insertion position in this list.
+ * @param other Source list.
+ * @param before_first Position before the first transferred element.
+ * @param before_last Position that stops transfer.
+ * @return `true` when the documented condition holds; otherwise `false`.
+ */
+  bool splice_after(iterator pos, forward_list& other, iterator before_first, iterator before_last) {
+    if (!is_insert_after_position(pos) || !other.is_valid_after_range(before_first, before_last)) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
+    node* first = other.next_after(before_first);
+    node* stop = before_last.n_;
+    if (first == stop) return true;
+
+    if (this == &other) {
+      if (same_position(pos, before_first) || same_position(pos, before_last)) return true;
+      for (node* scan = first; scan != stop; scan = scan->next) {
+        if (!pos.before_ && scan == pos.n_) return true;
+      }
+      node* range_last = first;
+      while (range_last->next != stop) range_last = range_last->next;
+      if (before_first.before_) head_ = stop;
+      else before_first.n_->next = stop;
+      link_range_after(pos, first, range_last);
+      return true;
+    }
+
+    const size_type count = other.after_range_count(before_first, before_last);
+    if (N - size_ < count) {
+      handle_error("forward_list::splice_after full");
+      return false;
+    }
+    iterator insert_pos = pos;
+    for (node* scan = first; scan != stop; scan = scan->next) {
+      insert_pos = insert_after(insert_pos, scan->get());
+      if (insert_pos == end()) return false; // LCOV_EXCL_BR_LINE
+    }
+    while (other.next_after(before_first) != stop) other.unlink_after_and_destroy(before_first);
+    return true;
+  }
+
+/**
+ * @brief Always-RETURN alias for transferring a same-capacity range.
+ * @param pos Insertion position in this list.
+ * @param other Source list.
+ * @param before_first Position before the first transferred element.
+ * @param before_last Position that stops transfer.
+ * @return `true` on success; otherwise `false` without invoking the panic policy.
+ */
+  bool try_splice_after(iterator pos, forward_list& other, iterator before_first, iterator before_last) {
+    if (!is_insert_after_position(pos) || !other.is_valid_after_range(before_first, before_last)) return false;
+    if (this != &other) {
+      const size_type count = other.after_range_count(before_first, before_last);
+      if (N - size_ < count) return false;
+    }
+    return splice_after(pos, other, before_first, before_last);
   }
 
   /**
@@ -529,6 +722,19 @@ public:
     }
   }
 
+  /** @brief Reverse element order in place. */
+  void reverse() {
+    node* previous = 0;
+    node* current = head_;
+    while (current) {
+      node* next = current->next;
+      current->next = previous;
+      previous = current;
+      current = next;
+    }
+    head_ = previous;
+  }
+
   /**
    * @brief Sort the list in-place with an allocation-free linked merge sort.
    * @param comp Strict weak ordering used for comparisons.
@@ -568,14 +774,17 @@ public:
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
   template <class Compare>
-  bool try_merge(forward_list& other, Compare comp) { return merge(other, comp); }
+  bool try_merge(forward_list& other, Compare comp) {
+    if (this == &other) return true;
+    return try_merge_destination_owned(other, comp);
+  }
 
 /**
  * @brief Always-RETURN alias for merging sorted input from another forward list.
  * @param other Other object participating in the operation.
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
-  bool try_merge(forward_list& other) { return merge(other); }
+  bool try_merge(forward_list& other) { return try_merge(other, less<T>()); }
 
 /**
  * @brief Merge sorted input from another fixed-capacity list.
@@ -603,7 +812,7 @@ public:
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
   template <size_t M, class Compare>
-  bool try_merge(forward_list<T, M>& other, Compare comp) { return merge(other, comp); }
+  bool try_merge(forward_list<T, M>& other, Compare comp) { return try_merge_destination_owned(other, comp); }
 
 /**
  * @brief Always-RETURN alias for merging sorted input from another capacity list.
@@ -611,7 +820,7 @@ public:
  * @return `true` on success; otherwise `false` without invoking the panic policy.
  */
   template <size_t M>
-  bool try_merge(forward_list<T, M>& other) { return merge(other); }
+  bool try_merge(forward_list<T, M>& other) { return try_merge(other, less<T>()); }
 
 /**
  * @brief Transfer elements after a forward-list position.
@@ -622,11 +831,21 @@ public:
  */
   template <size_t M>
   bool splice_after(iterator pos, forward_list<T, M>& other, typename forward_list<T, M>::iterator before) {
+    if (!is_insert_after_position(pos) || !other.is_insert_after_position(before)) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
     typename forward_list<T, M>::node* moving = before.before_ ? other.head_ : (before.n_ ? before.n_->next : 0);
-    if (!moving) return true;
-    if (full()) return false;
+    if (!moving) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
+    if (full()) {
+      handle_error("forward_list::splice_after full");
+      return false;
+    }
     T value = moving->get();
-    if (insert_after(pos, value) == end()) return false;
+    if (insert_after(pos, value) == end()) return false; // LCOV_EXCL_BR_LINE
     other.unlink_after_and_destroy(before);
     return true;
   }
@@ -640,7 +859,72 @@ public:
  */
   template <size_t M>
   bool try_splice_after(iterator pos, forward_list<T, M>& other, typename forward_list<T, M>::iterator before) {
-    return splice_after(pos, other, before);
+    if (!is_insert_after_position(pos) || !other.is_insert_after_position(before)) return false;
+    if (!other.next_after(before)) return false;
+    if (full()) return false;
+    typename forward_list<T, M>::node* moving = before.before_ ? other.head_ : (before.n_ ? before.n_->next : 0);
+    T value = moving->get();
+    if (insert_after(pos, value) == end()) return false; // LCOV_EXCL_BR_LINE
+    other.unlink_after_and_destroy(before);
+    return true;
+  }
+
+/**
+ * @brief Transfer a half-open range from another-capacity forward list.
+ * @param pos Insertion position in this list.
+ * @param other Source list.
+ * @param before_first Position before the first transferred element.
+ * @param before_last Position that stops transfer.
+ * @return `true` when the documented condition holds; otherwise `false`.
+ */
+  template <size_t M>
+  bool splice_after(iterator pos, forward_list<T, M>& other, typename forward_list<T, M>::iterator before_first,
+                    typename forward_list<T, M>::iterator before_last) {
+    if (!is_insert_after_position(pos) || !other.is_valid_after_range(before_first, before_last)) {
+      handle_error("forward_list::splice_after iterator");
+      return false;
+    }
+    typename forward_list<T, M>::node* first = other.next_after(before_first);
+    typename forward_list<T, M>::node* stop = before_last.n_;
+    if (first == stop) return true;
+    const size_type count = other.after_range_count(before_first, before_last);
+    if (N - size_ < count) {
+      handle_error("forward_list::splice_after full");
+      return false;
+    }
+    iterator insert_pos = pos;
+    for (typename forward_list<T, M>::node* scan = first; scan != stop; scan = scan->next) {
+      insert_pos = insert_after(insert_pos, scan->get());
+      if (insert_pos == end()) return false; // LCOV_EXCL_BR_LINE
+    }
+    while (other.next_after(before_first) != stop) other.unlink_after_and_destroy(before_first);
+    return true;
+  }
+
+/**
+ * @brief Always-RETURN alias for transferring an another-capacity range.
+ * @param pos Insertion position in this list.
+ * @param other Source list.
+ * @param before_first Position before the first transferred element.
+ * @param before_last Position that stops transfer.
+ * @return `true` on success; otherwise `false` without invoking the panic policy.
+ */
+  template <size_t M>
+  bool try_splice_after(iterator pos, forward_list<T, M>& other, typename forward_list<T, M>::iterator before_first,
+                        typename forward_list<T, M>::iterator before_last) {
+    if (!is_insert_after_position(pos) || !other.is_valid_after_range(before_first, before_last)) return false;
+    typename forward_list<T, M>::node* first = other.next_after(before_first);
+    typename forward_list<T, M>::node* stop = before_last.n_;
+    if (first == stop) return true;
+    const size_type count = other.after_range_count(before_first, before_last);
+    if (N - size_ < count) return false;
+    iterator insert_pos = pos;
+    for (typename forward_list<T, M>::node* scan = first; scan != stop; scan = scan->next) {
+      insert_pos = insert_after(insert_pos, scan->get());
+      if (insert_pos == end()) return false; // LCOV_EXCL_BR_LINE
+    }
+    while (other.next_after(before_first) != stop) other.unlink_after_and_destroy(before_first);
+    return true;
   }
 
 /**
@@ -685,6 +969,51 @@ private:
       if (n == candidate) return true;
     }
     return false;
+  }
+
+/**
+ * @brief Validate an iterator as a position that may have an element after it.
+ * @param pos Zero-based logical position.
+ * @return True for `before_begin()` or a live node owned by this list.
+ */
+  bool is_insert_after_position(iterator pos) const {
+    return pos.before_ ? pos.n_ == 0 : (pos.n_ != 0 && owns_node(pos.n_));
+  }
+
+/**
+ * @brief Return true when two forward-list positions name the same sentinel or node.
+ * @param lhs First position.
+ * @param rhs Second position.
+ * @return True when both positions are equal.
+ */
+  bool same_position(iterator lhs, iterator rhs) const {
+    return lhs.n_ == rhs.n_ && lhs.before_ == rhs.before_;
+  }
+
+/**
+ * @brief Validate that `before_last` is reachable after `before_first`.
+ * @param before_first Position before the first ranged element.
+ * @param before_last Position that stops the range.
+ * @return True when `(before_first,before_last)` is a valid forward range.
+ */
+  bool is_valid_after_range(iterator before_first, iterator before_last) const {
+    if (!is_insert_after_position(before_first) || !is_valid_iterator(before_last) || before_last.before_) return false;
+    for (node* scan = next_after(before_first); scan; scan = scan->next) {
+      if (scan == before_last.n_) return true;
+    }
+    return before_last.n_ == 0;
+  }
+
+/**
+ * @brief Count nodes in the half-open range after `before_first` and before `before_last`.
+ * @param before_first Position before the first ranged element.
+ * @param before_last Position that stops the range.
+ * @return Number of elements in the validated after-range.
+ */
+  size_type after_range_count(iterator before_first, iterator before_last) const {
+    size_type count = 0u;
+    for (node* scan = next_after(before_first); scan != before_last.n_; scan = scan->next) ++count;
+    return count;
   }
 
 /**
@@ -749,6 +1078,22 @@ private:
   }
 
 /**
+ * @brief Link a detached non-empty node range after the requested position.
+ * @param pos Position to link after.
+ * @param first First node in the detached range.
+ * @param last Last node in the detached range.
+ */
+  void link_range_after(iterator pos, node* first, node* last) {
+    if (pos.before_) {
+      last->next = head_;
+      head_ = first;
+    } else {
+      last->next = pos.n_ ? pos.n_->next : 0; // LCOV_EXCL_BR_LINE
+      if (pos.n_) pos.n_->next = first; // LCOV_EXCL_BR_LINE
+    }
+  }
+
+/**
  * @brief Detach the node after a forward-list position.
  * @param pos Zero-based logical position.
  * @return Pointer described by the function brief, or null for probe-style failure cases.
@@ -783,12 +1128,12 @@ private:
   iterator erase_after_with_value(iterator pos, T* out) {
     node* target = 0;
     if (pos.before_) target = head_;
-    else if (pos.n_) target = pos.n_->next;
+    else if (pos.n_) target = pos.n_->next; // LCOV_EXCL_LINE
     if (!target) return end();
     node* after = target->next;
     if (out) *out = target->get();
     if (pos.before_) head_ = after;
-    else pos.n_->next = after;
+    else pos.n_->next = after; // LCOV_EXCL_LINE
     SSTL_DESTROY_AT(target->value.ptr(0));
     release_destroyed_node(target);
     --size_;
@@ -827,7 +1172,33 @@ private:
  */
   template <size_t M, class Compare>
   bool merge_destination_owned(forward_list<T, M>& other, Compare comp) {
+    if (N - size_ < other.size_) {
+      handle_error("forward_list::merge full");
+      return false;
+    }
+    return merge_destination_owned_unchecked(other, comp);
+  }
+
+/**
+ * @brief Try to merge sorted source values without invoking the active error policy.
+ * @param other Other object participating in the operation.
+ * @param comp Strict weak ordering used for comparisons.
+ * @return `true` when merged; otherwise `false` when destination capacity is insufficient.
+ */
+  template <size_t M, class Compare>
+  bool try_merge_destination_owned(forward_list<T, M>& other, Compare comp) {
     if (N - size_ < other.size_) return false;
+    return merge_destination_owned_unchecked(other, comp);
+  }
+
+/**
+ * @brief Merge sorted source values after callers have checked destination capacity.
+ * @param other Other object participating in the operation.
+ * @param comp Strict weak ordering used for comparisons.
+ * @return `true` when the merge completed.
+ */
+  template <size_t M, class Compare>
+  bool merge_destination_owned_unchecked(forward_list<T, M>& other, Compare comp) {
     node* a = head_;
     typename forward_list<T, M>::node* b = other.head_;
     node* merged_head = 0;
@@ -907,6 +1278,53 @@ private:
     second = merge_sort_nodes(second, comp);
     return merge_sorted_nodes(first, second, comp);
   }
+
+/**
+ * @brief Count a multipass input range without mutating the list.
+ * @param first Start of the half-open range.
+ * @param last One-past-end of the half-open range.
+ * @return Number of elements in the range.
+ */
+  template <class InputIt>
+  size_type range_count(InputIt first, InputIt last) const {
+    size_type count = 0u;
+    for (; first != last; ++first) ++count;
+    return count;
+  }
+
+/**
+ * @brief Dispatch integral insert-after calls to counted insertion.
+ * @param pos Position after which values are inserted.
+ * @param count Requested element count.
+ * @param value Element value supplied by the caller.
+ * @return Iterator to the last inserted element, or `end()` on failure.
+ */
+  template <class Count, class Value>
+  iterator insert_after_dispatch(iterator pos, Count count, Value value, bool_constant<true>) {
+    return insert_after(pos, static_cast<size_type>(count), static_cast<T>(value));
+  }
+
+/**
+ * @brief Dispatch iterator insert-after calls to range insertion.
+ * @param pos Position after which values are inserted.
+ * @param first Start of the half-open input range.
+ * @param last One-past-end of the input range.
+ * @return Iterator to the last inserted element, or `end()` on failure.
+ */
+  template <class InputIt>
+  iterator insert_after_dispatch(iterator pos, InputIt first, InputIt last, bool_constant<false>) {
+    const size_type count = range_count(first, last);
+    if (!is_insert_after_position(pos) || count > N - size_) {
+      handle_error("forward_list::insert_after range");
+      return end();
+    }
+    iterator current = pos;
+    for (; first != last; ++first) {
+      current = insert_after(current, *first);
+      if (current == end()) return end(); // LCOV_EXCL_BR_LINE
+    }
+    return current;
+  }
 };
 
 /**
@@ -918,6 +1336,45 @@ template <class T, size_t N>
 inline void swap(forward_list<T, N>& lhs, forward_list<T, N>& rhs) {
   lhs.swap(rhs);
 }
+
+/** @brief Compare two forward lists for element-wise equality across capacities. */
+template <class T, size_t N, size_t M>
+inline bool operator==(const forward_list<T, N>& lhs, const forward_list<T, M>& rhs) {
+  typename forward_list<T, N>::const_iterator a = lhs.begin();
+  typename forward_list<T, M>::const_iterator b = rhs.begin();
+  for (; a != lhs.end() && b != rhs.end(); ++a, ++b) {
+    if (!(*a == *b)) return false;
+  }
+  return a == lhs.end() && b == rhs.end();
+}
+
+/** @brief Compare two forward lists for inequality. */
+template <class T, size_t N, size_t M>
+inline bool operator!=(const forward_list<T, N>& lhs, const forward_list<T, M>& rhs) { return !(lhs == rhs); }
+
+/** @brief Lexicographically compare two forward-list sequences. */
+template <class T, size_t N, size_t M>
+inline bool operator<(const forward_list<T, N>& lhs, const forward_list<T, M>& rhs) {
+  typename forward_list<T, N>::const_iterator a = lhs.begin();
+  typename forward_list<T, M>::const_iterator b = rhs.begin();
+  for (; a != lhs.end() && b != rhs.end(); ++a, ++b) {
+    if (*a < *b) return true;
+    if (*b < *a) return false;
+  }
+  return a == lhs.end() && b != rhs.end();
+}
+
+/** @brief Return true when `lhs` is not lexicographically greater than `rhs`. */
+template <class T, size_t N, size_t M>
+inline bool operator<=(const forward_list<T, N>& lhs, const forward_list<T, M>& rhs) { return !(rhs < lhs); }
+
+/** @brief Return true when `lhs` is lexicographically greater than `rhs`. */
+template <class T, size_t N, size_t M>
+inline bool operator>(const forward_list<T, N>& lhs, const forward_list<T, M>& rhs) { return rhs < lhs; }
+
+/** @brief Return true when `lhs` is not lexicographically less than `rhs`. */
+template <class T, size_t N, size_t M>
+inline bool operator>=(const forward_list<T, N>& lhs, const forward_list<T, M>& rhs) { return !(lhs < rhs); }
 
 } // namespace sstl
 

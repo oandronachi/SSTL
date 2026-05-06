@@ -1,0 +1,16 @@
+# Generated build and artifact output
+build/
+**/build/
+artifact/
+**/artifact/
+artifacts/
+**/artifacts/
+artefact/
+**/artefact/
+artefacts/
+**/artefacts/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc

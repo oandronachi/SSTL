@@ -32,64 +32,64 @@
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_reset(NAME* b); \
+  SSTL_C_INLINE void NAME##_reset(NAME* b); \
   /** \
    * @brief Run the generated set operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param pos Zero-based logical position. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_set(NAME* b, size_t pos); \
+  SSTL_C_INLINE void NAME##_set(NAME* b, size_t pos); \
   /** \
    * @brief Run the generated flip operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param pos Zero-based logical position. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_flip(NAME* b, size_t pos); \
+  SSTL_C_INLINE void NAME##_flip(NAME* b, size_t pos); \
   /** \
    * @brief Run the generated test operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param pos Zero-based logical position. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_test(const NAME* b, size_t pos); \
+  SSTL_C_INLINE bool NAME##_test(const NAME* b, size_t pos); \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* b); \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* b); \
   /** \
    * @brief Run the generated count operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_count(const NAME* b); \
+  SSTL_C_INLINE size_t NAME##_count(const NAME* b); \
   /** \
    * @brief Run the generated any operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_any(const NAME* b); \
+  SSTL_C_INLINE bool NAME##_any(const NAME* b); \
   /** \
    * @brief Run the generated none operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_none(const NAME* b); \
+  SSTL_C_INLINE bool NAME##_none(const NAME* b); \
   /** \
    * @brief Run the generated all operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_all(const NAME* b); \
+  SSTL_C_INLINE bool NAME##_all(const NAME* b); \
   /** \
    * @brief Run the generated to ulong operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED unsigned long NAME##_to_ulong(const NAME* b); \
+  SSTL_C_INLINE unsigned long NAME##_to_ulong(const NAME* b); \
   /** \
    * @brief Run the generated to string operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
@@ -99,48 +99,48 @@
    * @param one Caller-supplied argument used by this operation. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_to_string(const NAME* b, char* out, size_t out_size, char zero, char one); \
+  SSTL_C_INLINE bool NAME##_to_string(const NAME* b, char* out, size_t out_size, char zero, char one); \
   /** \
    * @brief Run the generated not operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_not(const NAME* b); \
+  SSTL_C_INLINE NAME NAME##_not(const NAME* b); \
   /** \
    * @brief Run the generated and assign operation for this typed SSTL family. \
    * @param lhs Caller-supplied argument used by this operation. \
    * @param rhs Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_and_assign(NAME* lhs, const NAME* rhs); \
+  SSTL_C_INLINE void NAME##_and_assign(NAME* lhs, const NAME* rhs); \
   /** \
    * @brief Run the generated or assign operation for this typed SSTL family. \
    * @param lhs Caller-supplied argument used by this operation. \
    * @param rhs Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_or_assign(NAME* lhs, const NAME* rhs); \
+  SSTL_C_INLINE void NAME##_or_assign(NAME* lhs, const NAME* rhs); \
   /** \
    * @brief Run the generated xor assign operation for this typed SSTL family. \
    * @param lhs Caller-supplied argument used by this operation. \
    * @param rhs Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_xor_assign(NAME* lhs, const NAME* rhs); \
+  SSTL_C_INLINE void NAME##_xor_assign(NAME* lhs, const NAME* rhs); \
   /** \
    * @brief Run the generated shift left assign operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param shift Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_shift_left_assign(NAME* b, size_t shift); \
+  SSTL_C_INLINE void NAME##_shift_left_assign(NAME* b, size_t shift); \
   /** \
    * @brief Run the generated shift right assign operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param shift Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_shift_right_assign(NAME* b, size_t shift);
+  SSTL_C_INLINE void NAME##_shift_right_assign(NAME* b, size_t shift);
 
 /** @def SSTL_BITSET_DEFINE
  * @brief Define the typed C SSTL API family generated by `SSTL_BITSET_DEFINE`.
@@ -151,70 +151,70 @@
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_trim_(NAME* b) { size_t i; const size_t word_bits = sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u; const size_t word_count = sizeof(b->words) / sizeof(b->words[0]); const size_t used = ((size_t)(BITS) + word_bits - 1u) / word_bits; if ((size_t)(BITS) == 0u) { for (i = 0u; i != word_count; ++i) b->words[i] = 0ul; } else if (((size_t)(BITS) % word_bits) != 0u) { const size_t extra = (size_t)(BITS) % word_bits; const SSTL_C_BITSET_WORD_TYPE mask = (SSTL_C_BITSET_WORD_TYPE)((1ul << extra) - 1ul); b->words[used - 1u] &= mask; } } \
+  SSTL_C_INLINE void NAME##_trim_(NAME* b) { size_t i; const size_t word_bits = sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u; const size_t word_count = sizeof(b->words) / sizeof(b->words[0]); const size_t used = ((size_t)(BITS) + word_bits - 1u) / word_bits; if ((size_t)(BITS) == 0u) { for (i = 0u; i != word_count; ++i) b->words[i] = 0ul; } else if (((size_t)(BITS) % word_bits) != 0u) { const size_t extra = (size_t)(BITS) % word_bits; const SSTL_C_BITSET_WORD_TYPE mask = (SSTL_C_BITSET_WORD_TYPE)((1ul << extra) - 1ul); b->words[used - 1u] &= mask; } } \
   /** \
    * @brief Run the generated reset operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_reset(NAME* b) { size_t i; for (i = 0u; i != sizeof(b->words) / sizeof(b->words[0]); ++i) b->words[i] = 0ul; } \
+  SSTL_C_INLINE void NAME##_reset(NAME* b) { size_t i; for (i = 0u; i != sizeof(b->words) / sizeof(b->words[0]); ++i) b->words[i] = 0ul; } \
   /** \
    * @brief Run the generated set operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param pos Zero-based logical position. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_set(NAME* b, size_t pos) { b->words[pos / (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)] |= (1ul << (pos % (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u))); } \
+  SSTL_C_INLINE void NAME##_set(NAME* b, size_t pos) { b->words[pos / (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)] |= (1ul << (pos % (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u))); } \
   /** \
    * @brief Run the generated flip operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param pos Zero-based logical position. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_flip(NAME* b, size_t pos) { b->words[pos / (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)] ^= (1ul << (pos % (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u))); } \
+  SSTL_C_INLINE void NAME##_flip(NAME* b, size_t pos) { b->words[pos / (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)] ^= (1ul << (pos % (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u))); } \
   /** \
    * @brief Run the generated test operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param pos Zero-based logical position. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_test(const NAME* b, size_t pos) { return (b->words[pos / (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)] & (1ul << (pos % (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)))) != 0ul; } \
+  SSTL_C_INLINE bool NAME##_test(const NAME* b, size_t pos) { return (b->words[pos / (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)] & (1ul << (pos % (sizeof(SSTL_C_BITSET_WORD_TYPE) * 8u)))) != 0ul; } \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* b) { (void)b; return (size_t)(BITS); } \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* b) { (void)b; return (size_t)(BITS); } \
   /** \
    * @brief Run the generated count operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_count(const NAME* b) { size_t i; size_t n = 0u; for (i = 0u; i != (size_t)(BITS); ++i) if (NAME##_test(b, i)) ++n; return n; } \
+  SSTL_C_INLINE size_t NAME##_count(const NAME* b) { size_t i; size_t n = 0u; for (i = 0u; i != (size_t)(BITS); ++i) if (NAME##_test(b, i)) ++n; return n; } \
   /** \
    * @brief Run the generated any operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_any(const NAME* b) { size_t i; for (i = 0u; i != (size_t)(BITS); ++i) if (NAME##_test(b, i)) return true; return false; } \
+  SSTL_C_INLINE bool NAME##_any(const NAME* b) { size_t i; for (i = 0u; i != (size_t)(BITS); ++i) if (NAME##_test(b, i)) return true; return false; } \
   /** \
    * @brief Run the generated none operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_none(const NAME* b) { return !NAME##_any(b); } \
+  SSTL_C_INLINE bool NAME##_none(const NAME* b) { return !NAME##_any(b); } \
   /** \
    * @brief Run the generated all operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_all(const NAME* b) { return NAME##_count(b) == (size_t)(BITS); } \
+  SSTL_C_INLINE bool NAME##_all(const NAME* b) { return NAME##_count(b) == (size_t)(BITS); } \
   /** \
    * @brief Run the generated to ulong operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED unsigned long NAME##_to_ulong(const NAME* b) { size_t i; unsigned long out = 0ul; const size_t max_bits = sizeof(unsigned long) * 8u; const size_t limit = (size_t)(BITS) < max_bits ? (size_t)(BITS) : max_bits; for (i = 0u; i != limit; ++i) if (NAME##_test(b, i)) out |= (1ul << i); for (i = limit; i != (size_t)(BITS); ++i) { if (NAME##_test(b, i)) { SSTL_C_PANIC("bitset to_ulong"); break; } } return out; } \
+  SSTL_C_INLINE unsigned long NAME##_to_ulong(const NAME* b) { size_t i; unsigned long out = 0ul; const size_t max_bits = sizeof(unsigned long) * 8u; const size_t limit = (size_t)(BITS) < max_bits ? (size_t)(BITS) : max_bits; for (i = 0u; i != limit; ++i) if (NAME##_test(b, i)) out |= (1ul << i); for (i = limit; i != (size_t)(BITS); ++i) { if (NAME##_test(b, i)) { SSTL_C_PANIC("bitset to_ulong"); break; } } return out; } \
   /** \
    * @brief Run the generated to string operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
@@ -224,48 +224,48 @@
    * @param one Caller-supplied argument used by this operation. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_to_string(const NAME* b, char* out, size_t out_size, char zero, char one) { size_t i; if (out_size <= (size_t)(BITS)) { SSTL_C_PANIC("bitset to_string"); if (out_size != 0u) out[0] = 0; return false; } for (i = 0u; i != (size_t)(BITS); ++i) out[i] = NAME##_test(b, (size_t)(BITS) - 1u - i) ? one : zero; out[(size_t)(BITS)] = 0; return true; } \
+  SSTL_C_INLINE bool NAME##_to_string(const NAME* b, char* out, size_t out_size, char zero, char one) { size_t i; if (out_size <= (size_t)(BITS)) { SSTL_C_PANIC("bitset to_string"); if (out_size != 0u) out[0] = 0; return false; } for (i = 0u; i != (size_t)(BITS); ++i) out[i] = NAME##_test(b, (size_t)(BITS) - 1u - i) ? one : zero; out[(size_t)(BITS)] = 0; return true; } \
   /** \
    * @brief Run the generated not operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_not(const NAME* b) { size_t i; NAME out = *b; for (i = 0u; i != sizeof(out.words) / sizeof(out.words[0]); ++i) out.words[i] = (SSTL_C_BITSET_WORD_TYPE)~out.words[i]; NAME##_trim_(&out); return out; } \
+  SSTL_C_INLINE NAME NAME##_not(const NAME* b) { size_t i; NAME out = *b; for (i = 0u; i != sizeof(out.words) / sizeof(out.words[0]); ++i) out.words[i] = (SSTL_C_BITSET_WORD_TYPE)~out.words[i]; NAME##_trim_(&out); return out; } \
   /** \
    * @brief Run the generated and assign operation for this typed SSTL family. \
    * @param lhs Caller-supplied argument used by this operation. \
    * @param rhs Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_and_assign(NAME* lhs, const NAME* rhs) { size_t i; for (i = 0u; i != sizeof(lhs->words) / sizeof(lhs->words[0]); ++i) lhs->words[i] &= rhs->words[i]; NAME##_trim_(lhs); } \
+  SSTL_C_INLINE void NAME##_and_assign(NAME* lhs, const NAME* rhs) { size_t i; for (i = 0u; i != sizeof(lhs->words) / sizeof(lhs->words[0]); ++i) lhs->words[i] &= rhs->words[i]; NAME##_trim_(lhs); } \
   /** \
    * @brief Run the generated or assign operation for this typed SSTL family. \
    * @param lhs Caller-supplied argument used by this operation. \
    * @param rhs Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_or_assign(NAME* lhs, const NAME* rhs) { size_t i; for (i = 0u; i != sizeof(lhs->words) / sizeof(lhs->words[0]); ++i) lhs->words[i] |= rhs->words[i]; NAME##_trim_(lhs); } \
+  SSTL_C_INLINE void NAME##_or_assign(NAME* lhs, const NAME* rhs) { size_t i; for (i = 0u; i != sizeof(lhs->words) / sizeof(lhs->words[0]); ++i) lhs->words[i] |= rhs->words[i]; NAME##_trim_(lhs); } \
   /** \
    * @brief Run the generated xor assign operation for this typed SSTL family. \
    * @param lhs Caller-supplied argument used by this operation. \
    * @param rhs Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_xor_assign(NAME* lhs, const NAME* rhs) { size_t i; for (i = 0u; i != sizeof(lhs->words) / sizeof(lhs->words[0]); ++i) lhs->words[i] ^= rhs->words[i]; NAME##_trim_(lhs); } \
+  SSTL_C_INLINE void NAME##_xor_assign(NAME* lhs, const NAME* rhs) { size_t i; for (i = 0u; i != sizeof(lhs->words) / sizeof(lhs->words[0]); ++i) lhs->words[i] ^= rhs->words[i]; NAME##_trim_(lhs); } \
   /** \
    * @brief Run the generated shift left assign operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param shift Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_shift_left_assign(NAME* b, size_t shift) { size_t i; NAME out; NAME##_reset(&out); if (shift < (size_t)(BITS)) { for (i = shift; i != (size_t)(BITS); ++i) if (NAME##_test(b, i - shift)) NAME##_set(&out, i); } *b = out; } \
+  SSTL_C_INLINE void NAME##_shift_left_assign(NAME* b, size_t shift) { size_t i; NAME out; NAME##_reset(&out); if (shift < (size_t)(BITS)) { for (i = shift; i != (size_t)(BITS); ++i) if (NAME##_test(b, i - shift)) NAME##_set(&out, i); } *b = out; } \
   /** \
    * @brief Run the generated shift right assign operation for this typed SSTL family. \
    * @param b Second operand or second range start. \
    * @param shift Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_shift_right_assign(NAME* b, size_t shift) { size_t i; NAME out; NAME##_reset(&out); if (shift < (size_t)(BITS)) { for (i = 0u; i != (size_t)(BITS) - shift; ++i) if (NAME##_test(b, i + shift)) NAME##_set(&out, i); } *b = out; }
+  SSTL_C_INLINE void NAME##_shift_right_assign(NAME* b, size_t shift) { size_t i; NAME out; NAME##_reset(&out); if (shift < (size_t)(BITS)) { for (i = 0u; i != (size_t)(BITS) - shift; ++i) if (NAME##_test(b, i + shift)) NAME##_set(&out, i); } *b = out; }
 
 #endif
 

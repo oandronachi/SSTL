@@ -29,59 +29,65 @@
    * @param s String or set instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_init(NAME* s); \
+  SSTL_C_INLINE void NAME##_init(NAME* s); \
   /** \
    * @brief Return the number of live keys. \
    * @param s String or set instance. \
    * @return The number of live keys. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* s); \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* s); \
   /** \
    * @brief Return the fixed key capacity. \
    * @param s String or set instance. \
    * @return The fixed key capacity. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* s); \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* s); \
   /** \
    * @brief Return true when no live keys are present. \
    * @param s String or set instance. \
    * @return True when no live keys are present. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* s); \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* s); \
   /** \
    * @brief Return true when no more keys can be inserted. \
    * @param s String or set instance. \
    * @return True when no more keys can be inserted. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_full(const NAME* s); \
+  SSTL_C_INLINE bool NAME##_full(const NAME* s); \
+  SSTL_C_INLINE void NAME##_clear(NAME* s); \
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b); \
   /** \
    * @brief Return the first index whose key is not less than `key`. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return The first index whose key is not less than `key`. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_lower_bound(const NAME* s, K key); \
+  SSTL_C_INLINE size_t NAME##_lower_bound(const NAME* s, K key); \
+  SSTL_C_INLINE size_t NAME##_upper_bound(const NAME* s, K key); \
+  SSTL_C_INLINE size_t NAME##_equal_range_first(const NAME* s, K key); \
+  SSTL_C_INLINE size_t NAME##_equal_range_second(const NAME* s, K key); \
   /** \
    * @brief Return the stored key matching `key`, or null when absent. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return The stored key matching `key`, or null when absent. \
    */ \
-  static SSTL_C_UNUSED K* NAME##_find(NAME* s, K key); \
+  SSTL_C_INLINE K* NAME##_find(NAME* s, K key); \
+  SSTL_C_INLINE size_t NAME##_count(NAME* s, K key); \
   /** \
    * @brief Insert `key` while preserving sorted order and uniqueness. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_insert(NAME* s, K key); \
+  SSTL_C_INLINE bool NAME##_insert(NAME* s, K key); \
   /** \
    * @brief Erase `key` and return the number of keys removed. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_erase(NAME* s, K key);
+  SSTL_C_INLINE size_t NAME##_erase(NAME* s, K key);
 
 /** @def SSTL_FLAT_SET_DEFINE
  * @brief Define a typed, sorted, fixed-capacity C flat_set family.
@@ -96,59 +102,65 @@
    * @param s String or set instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_init(NAME* s) { s->size = 0u; } \
+  SSTL_C_INLINE void NAME##_init(NAME* s) { s->size = 0u; } \
   /** \
    * @brief Return the number of live keys. \
    * @param s String or set instance. \
    * @return The number of live keys. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* s) { return s->size; } \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* s) { return s->size; } \
   /** \
    * @brief Return the fixed key capacity. \
    * @param s String or set instance. \
    * @return The fixed key capacity. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* s) { (void)s; return (size_t)(CAP); } \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* s) { (void)s; return (size_t)(CAP); } \
   /** \
    * @brief Return true when no live keys are present. \
    * @param s String or set instance. \
    * @return True when no live keys are present. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* s) { return s->size == 0u; } \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* s) { return s->size == 0u; } \
   /** \
    * @brief Return true when no more keys can be inserted. \
    * @param s String or set instance. \
    * @return True when no more keys can be inserted. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_full(const NAME* s) { return s->size == (size_t)(CAP); } \
+  SSTL_C_INLINE bool NAME##_full(const NAME* s) { return s->size == (size_t)(CAP); } \
+  SSTL_C_INLINE void NAME##_clear(NAME* s) { s->size = 0u; } \
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b) { NAME tmp = *a; *a = *b; *b = tmp; } \
   /** \
    * @brief Return the first index whose key is not less than `key`. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return The first index whose key is not less than `key`. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_lower_bound(const NAME* s, K key) { size_t i; for (i = 0u; i != s->size; ++i) if ((CMP)((const void*)&s->data[i], (const void*)&key) >= 0) return i; return s->size; } \
+  SSTL_C_INLINE size_t NAME##_lower_bound(const NAME* s, K key) { size_t i; for (i = 0u; i != s->size; ++i) if ((CMP)((const void*)&s->data[i], (const void*)&key) >= 0) return i; return s->size; } \
+  SSTL_C_INLINE size_t NAME##_upper_bound(const NAME* s, K key) { size_t i; for (i = 0u; i != s->size; ++i) if ((CMP)((const void*)&key, (const void*)&s->data[i]) < 0) return i; return s->size; } \
+  SSTL_C_INLINE size_t NAME##_equal_range_first(const NAME* s, K key) { return NAME##_lower_bound(s, key); } \
+  SSTL_C_INLINE size_t NAME##_equal_range_second(const NAME* s, K key) { return NAME##_upper_bound(s, key); } \
   /** \
    * @brief Return the stored key matching `key`, or null when absent. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return The stored key matching `key`, or null when absent. \
    */ \
-  static SSTL_C_UNUSED K* NAME##_find(NAME* s, K key) { size_t i = NAME##_lower_bound(s, key); return i != s->size && (CMP)((const void*)&key, (const void*)&s->data[i]) == 0 ? &s->data[i] : 0; } \
+  SSTL_C_INLINE K* NAME##_find(NAME* s, K key) { size_t i = NAME##_lower_bound(s, key); return i != s->size && (CMP)((const void*)&key, (const void*)&s->data[i]) == 0 ? &s->data[i] : 0; } \
+  SSTL_C_INLINE size_t NAME##_count(NAME* s, K key) { return NAME##_find(s, key) ? 1u : 0u; } \
   /** \
    * @brief Insert `key` while preserving sorted order and uniqueness. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_insert(NAME* s, K key) { size_t i; size_t pos = NAME##_lower_bound(s, key); if (pos != s->size && (CMP)((const void*)&key, (const void*)&s->data[pos]) == 0) return false; if (s->size == (size_t)(CAP)) { SSTL_C_PANIC("flat_set full"); return false; } for (i = s->size; i != pos; --i) s->data[i] = s->data[i - 1u]; s->data[pos] = key; ++s->size; return true; } \
+  SSTL_C_INLINE bool NAME##_insert(NAME* s, K key) { size_t i; size_t pos = NAME##_lower_bound(s, key); if (pos != s->size && (CMP)((const void*)&key, (const void*)&s->data[pos]) == 0) return false; if (s->size == (size_t)(CAP)) { SSTL_C_PANIC("flat_set full"); return false; } for (i = s->size; i != pos; --i) s->data[i] = s->data[i - 1u]; s->data[pos] = key; ++s->size; return true; } \
   /** \
    * @brief Erase `key` and return the number of keys removed. \
    * @param s String or set instance. \
    * @param key Lookup or insertion key. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_erase(NAME* s, K key) { size_t i; size_t pos = NAME##_lower_bound(s, key); if (pos == s->size || (CMP)((const void*)&key, (const void*)&s->data[pos]) != 0) return 0u; for (i = pos + 1u; i != s->size; ++i) s->data[i - 1u] = s->data[i]; --s->size; return 1u; }
+  SSTL_C_INLINE size_t NAME##_erase(NAME* s, K key) { size_t i; size_t pos = NAME##_lower_bound(s, key); if (pos == s->size || (CMP)((const void*)&key, (const void*)&s->data[pos]) != 0) return 0u; for (i = pos + 1u; i != s->size; ++i) s->data[i - 1u] = s->data[i]; --s->size; return 1u; }
 
 #endif
 

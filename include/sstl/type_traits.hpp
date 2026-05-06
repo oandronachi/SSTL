@@ -25,7 +25,11 @@ namespace sstl {
  */
 template <bool V>
 struct bool_constant {
-  enum { value = V };
+  /** @brief Anonymous enum carrying the compile-time boolean value. */
+  enum {
+    /** @brief Compile-time boolean value represented by this trait. */
+    value = V
+  };
 };
 
 /** @brief SFINAE helper with no nested type when the condition is false. */
@@ -99,7 +103,11 @@ struct is_integral<unsigned long> : bool_constant<true> {};
  */
 template <class T>
 struct is_relocatable {
-  enum { value = 0 };
+  /** @brief Anonymous enum carrying the conservative relocation trait value. */
+  enum {
+    /** @brief False until a specialization explicitly opts into relocation. */
+    value = 0
+  };
 };
 
 } // namespace sstl

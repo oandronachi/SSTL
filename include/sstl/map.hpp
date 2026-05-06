@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file map.hpp
  * @brief Fixed-capacity ordered map backed by an inline red/black tree.
  *
@@ -52,10 +52,35 @@ class map {
   };
 
 public:
+  /** @brief Key type stored by the ordered map. */
+  typedef K key_type;
+  /** @brief Mapped value type stored by the ordered map. */
+  typedef V mapped_type;
+  /** @brief Key comparison predicate type. */
+  typedef Compare key_compare;
   /** @brief Key/value pair type stored in the ordered tree. */
   typedef pair<K, V> value_type;
   /** @brief Unsigned size and index type used by the map. */
   typedef size_t size_type;
+
+  /** @brief Value comparison predicate that orders pairs by key. */
+  class value_compare {
+  public:
+    /**
+     * @brief Compare two map values by key.
+     * @param a First map value.
+     * @param b Second map value.
+     * @return `true` when `a.first` is ordered before `b.first`.
+     */
+    bool operator()(const value_type& a, const value_type& b) const { return comp_(a.first, b.first); }
+  private:
+    /** @brief Allow map to construct value_compare from its key comparator. */
+    friend class map;
+    /** @brief Construct a value comparator from the key comparator. */
+    explicit value_compare(key_compare comp) : comp_(comp) {}
+    /** @brief Stored key comparator. */
+    key_compare comp_;
+  };
 
   /** @brief Bidirectional iterator over ordered key/value pairs. */
   class iterator {
@@ -67,7 +92,7 @@ public:
     /** @brief Mutable pointer returned by arrow access. */
     typedef value_type* pointer;
     /** @brief Signed distance type used by iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
     typedef bidirectional_iterator_tag iterator_category;
 
@@ -132,7 +157,9 @@ public:
     bool operator!=(const iterator& other) const { return !(*this == other); }
 
   private:
+    /** @brief Allow map specializations to construct and inspect mutable iterators. */
     template <class, class, size_t, class> friend class map;
+    /** @brief Allow const iterators to copy mutable iterator internals. */
     friend class const_iterator;
     /** @brief Owning map used to resolve node indices during iterator operations. */
     map* owner_;
@@ -152,7 +179,7 @@ public:
     /** @brief Const pointer returned by arrow access. */
     typedef const value_type* pointer;
     /** @brief Signed distance type used by iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
     typedef bidirectional_iterator_tag iterator_category;
 
@@ -222,6 +249,7 @@ public:
     bool operator!=(const const_iterator& other) const { return !(*this == other); }
 
   private:
+    /** @brief Allow map specializations to construct and inspect const iterators. */
     template <class, class, size_t, class> friend class map;
     /** @brief Owning map used to resolve node indices during const iterator operations. */
     const map* owner_;
@@ -230,6 +258,11 @@ public:
     /** @brief Slot generation captured when this iterator was created or advanced. */
     unsigned generation_;
   };
+
+  /** @brief Mutable reverse iterator over ordered key/value pairs. */
+  typedef reverse_iterator_adaptor<iterator> reverse_iterator;
+  /** @brief Const reverse iterator over ordered key/value pairs. */
+  typedef reverse_iterator_adaptor<const_iterator> const_reverse_iterator;
 
 /** @brief Construct a map object while initializing its fixed inline storage state. */
   map() : root_(-1), free_head_(-1), size_(0u) {
@@ -285,10 +318,50 @@ public:
  */
   const_iterator begin() const { return const_iterator(this, minimum(root_)); }
 /**
+ * @brief Return a const iterator to the first element.
+ * @return A const iterator to the first element.
+ */
+  const_iterator cbegin() const { return begin(); }
+/**
  * @brief Return an iterator one past the final element.
  * @return An iterator one past the final element.
  */
   const_iterator end() const { return const_iterator(this, -1); }
+/**
+ * @brief Return a const iterator one past the final element.
+ * @return A const iterator one past the final element.
+ */
+  const_iterator cend() const { return end(); }
+/**
+ * @brief Return a mutable reverse iterator to the final ordered element.
+ * @return A mutable reverse iterator to the final ordered element.
+ */
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+/**
+ * @brief Return a const reverse iterator to the final ordered element.
+ * @return A const reverse iterator to the final ordered element.
+ */
+  const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+/**
+ * @brief Return a const reverse iterator to the final ordered element.
+ * @return A const reverse iterator to the final ordered element.
+ */
+  const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
+/**
+ * @brief Return a mutable reverse iterator one before the first ordered element.
+ * @return A mutable reverse iterator one before the first ordered element.
+ */
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+/**
+ * @brief Return a const reverse iterator one before the first ordered element.
+ * @return A const reverse iterator one before the first ordered element.
+ */
+  const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+/**
+ * @brief Return a const reverse iterator one before the first ordered element.
+ * @return A const reverse iterator one before the first ordered element.
+ */
+  const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
 /**
  * @brief Return the number of live elements.
  * @return The number of live elements.
@@ -314,6 +387,18 @@ public:
  * @return `true` when the documented condition holds; otherwise `false`.
  */
   bool full() const { return size_ == N; }
+
+/**
+ * @brief Return the key comparison predicate.
+ * @return The key comparison predicate.
+ */
+  key_compare key_comp() const { return comp_; }
+
+/**
+ * @brief Return the value comparison predicate.
+ * @return The value comparison predicate.
+ */
+  value_compare value_comp() const { return value_compare(comp_); }
 
 /**
  * @brief Find an element by key and return the container sentinel when absent.
@@ -489,6 +574,27 @@ public:
   }
 
   /**
+   * @brief Insert a value using `hint` as a non-binding placement hint.
+   * @param hint Suggested insertion position.
+   * @param value Value supplied for insertion.
+   * @return Iterator to the stored element.
+   */
+  iterator insert(iterator hint, const value_type& value) {
+    (void)hint;
+    return insert(value).first;
+  }
+
+  /**
+   * @brief Insert every value in the half-open input range.
+   * @param first Start of the half-open range.
+   * @param last One-past-end of the range.
+   */
+  template <class InputIt>
+  void insert(InputIt first, InputIt last) {
+    for (; first != last; ++first) (void)insert(*first);
+  }
+
+  /**
    * @brief Erase one element by iterator.
    * @param pos Zero-based logical position.
    * @return Result described by the function brief.
@@ -499,6 +605,21 @@ public:
       return end();
     }
     return iterator(this, erase_index(pos.index_));
+  }
+
+  /**
+   * @brief Erase the half-open iterator range `[first,last)`.
+   * @param first Start of the half-open range.
+   * @param last One-past-end of the range.
+   * @return Iterator naming `last` after erasure.
+   */
+  iterator erase(iterator first, iterator last) {
+    if (!is_valid_range(first, last)) {
+      handle_error("map::erase range");
+      return end();
+    }
+    while (first != last) first = erase(first);
+    return first;
   }
 
   /**
@@ -513,6 +634,48 @@ public:
     return 1u;
   }
 
+  /**
+   * @brief Return the mapped value for an existing key without inserting.
+   * @param key Lookup key.
+   * @return Reference to the mapped value.
+  */
+  V& at(const K& key) {
+    V* value = try_at(key);
+    if (!value) return fail_reference<V>("map::at"); // LCOV_EXCL_BR_LINE
+    return *value;
+  }
+
+  /**
+   * @brief Return the const mapped value for an existing key without inserting.
+   * @param key Lookup key.
+   * @return Const reference to the mapped value.
+  */
+  const V& at(const K& key) const {
+    const V* value = try_at(key);
+    if (!value) return fail_reference<const V>("map::at"); // LCOV_EXCL_BR_LINE
+    return *value;
+  }
+
+  /**
+   * @brief Return the mapped value for an existing key, or null when absent.
+   * @param key Lookup key.
+   * @return Pointer to the mapped value, or null when `key` is absent.
+   */
+  V* try_at(const K& key) {
+    iterator it = find(key);
+    return it == end() ? 0 : &it->second;
+  }
+
+  /**
+   * @brief Return the const mapped value for an existing key, or null when absent.
+   * @param key Lookup key.
+   * @return Const pointer to the mapped value, or null when `key` is absent.
+   */
+  const V* try_at(const K& key) const {
+    const_iterator it = find(key);
+    return it == end() ? 0 : &it->second;
+  }
+
 /**
  * @brief Return the mapped value for the key, inserting a default value when necessary.
  * @param key Lookup or insertion key.
@@ -523,8 +686,7 @@ public:
     if (it != end()) return it->second;
     pair<iterator, bool> inserted = insert(make_pair(key, V()));
     if (inserted.second) return inserted.first->second;
-    handle_error("map::operator[] full");
-    return overflow_value();
+    return fail_reference<V>("map::operator[] full");
   }
 
 /**
@@ -632,6 +794,22 @@ private:
   }
 
 /**
+ * @brief Return whether `last` is reachable by incrementing from `first`.
+ * @param first Start of the half-open range.
+ * @param last One-past-end of the half-open range.
+ * @return Whether `[first,last)` is a valid forward range for this map.
+ */
+  bool is_valid_range(iterator first, iterator last) const {
+    if (!is_valid_iterator(first) || !is_valid_iterator(last)) return false;
+    while (first != last) {
+      if (first.index_ < 0) return false;
+      first.index_ = successor(first.index_);
+      first.generation_ = iterator_generation(first.index_);
+    }
+    return true;
+  }
+
+/**
  * @brief Reserve a free inline tree node and construct a key/value pair inside it.
  * @param value Value supplied for comparison, assignment, insertion, or lookup.
  * @return Result described by the function brief.
@@ -658,15 +836,6 @@ private:
     reset_node_metadata(i);
     nodes_[i].next_free = free_head_;
     free_head_ = static_cast<int>(i);
-  }
-
-/**
- * @brief Return a stable fallback value for failed `operator[]` insertions.
- * @return A stable fallback value for failed `operator[]` insertions.
- */
-  static V& overflow_value() {
-    static V value = V();
-    return value;
   }
 
 /**
@@ -789,22 +958,39 @@ private:
   int erase_index(int z) {
     int result = successor(z);
     int y = z;
-    if (nodes_[static_cast<unsigned>(z)].left >= 0 && nodes_[static_cast<unsigned>(z)].right >= 0) {
+    int x = -1;
+    int parent = -1;
+    bool y_was_red = nodes_[static_cast<unsigned>(y)].red;
+
+    if (nodes_[static_cast<unsigned>(z)].left < 0) {
+      x = nodes_[static_cast<unsigned>(z)].right;
+      parent = nodes_[static_cast<unsigned>(z)].parent;
+      transplant(z, x);
+    } else if (nodes_[static_cast<unsigned>(z)].right < 0) {
+      x = nodes_[static_cast<unsigned>(z)].left;
+      parent = nodes_[static_cast<unsigned>(z)].parent;
+      transplant(z, x);
+    } else {
       y = result;
-      nodes_[static_cast<unsigned>(z)].get() = nodes_[static_cast<unsigned>(y)].get();
-      bump_generation(static_cast<unsigned>(z));
-      result = z;
+      y_was_red = nodes_[static_cast<unsigned>(y)].red;
+      x = nodes_[static_cast<unsigned>(y)].right;
+      if (nodes_[static_cast<unsigned>(y)].parent == z) {
+        parent = y;
+      } else {
+        parent = nodes_[static_cast<unsigned>(y)].parent;
+        transplant(y, x);
+        nodes_[static_cast<unsigned>(y)].right = nodes_[static_cast<unsigned>(z)].right;
+        nodes_[static_cast<unsigned>(nodes_[static_cast<unsigned>(y)].right)].parent = y;
+      }
+      transplant(z, y);
+      nodes_[static_cast<unsigned>(y)].left = nodes_[static_cast<unsigned>(z)].left;
+      nodes_[static_cast<unsigned>(nodes_[static_cast<unsigned>(y)].left)].parent = y;
+      nodes_[static_cast<unsigned>(y)].red = nodes_[static_cast<unsigned>(z)].red;
     }
 
-    const int x = nodes_[static_cast<unsigned>(y)].left >= 0
-                ? nodes_[static_cast<unsigned>(y)].left
-                : nodes_[static_cast<unsigned>(y)].right;
-    const int parent = nodes_[static_cast<unsigned>(y)].parent;
-    const bool y_was_red = nodes_[static_cast<unsigned>(y)].red;
-    transplant(y, x);
     if (!y_was_red) fix_after_erase(x, parent);
-    SSTL_DESTROY_AT(nodes_[static_cast<unsigned>(y)].value.ptr(0));
-    release_node(static_cast<unsigned>(y));
+    SSTL_DESTROY_AT(nodes_[static_cast<unsigned>(z)].value.ptr(0));
+    release_node(static_cast<unsigned>(z));
     --size_;
     if (size_ == 0u) root_ = -1;
     return result;
@@ -976,6 +1162,46 @@ template <class K, class V, size_t N, class Compare>
 inline void swap(map<K, V, N, Compare>& lhs, map<K, V, N, Compare>& rhs) {
   lhs.swap(rhs);
 }
+
+/** @brief Compare two ordered maps for element-wise equality across capacities. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator==(const map<K, V, N, Compare>& lhs, const map<K, V, M, Compare>& rhs) {
+  if (lhs.size() != rhs.size()) return false;
+  typename map<K, V, N, Compare>::const_iterator a = lhs.begin();
+  typename map<K, V, M, Compare>::const_iterator b = rhs.begin();
+  for (; a != lhs.end(); ++a, ++b) {
+    if (!(*a == *b)) return false;
+  }
+  return true;
+}
+
+/** @brief Compare two ordered maps for inequality. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator!=(const map<K, V, N, Compare>& lhs, const map<K, V, M, Compare>& rhs) { return !(lhs == rhs); }
+
+/** @brief Lexicographically compare two ordered-map sequences. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator<(const map<K, V, N, Compare>& lhs, const map<K, V, M, Compare>& rhs) {
+  typename map<K, V, N, Compare>::const_iterator a = lhs.begin();
+  typename map<K, V, M, Compare>::const_iterator b = rhs.begin();
+  for (; a != lhs.end() && b != rhs.end(); ++a, ++b) {
+    if (*a < *b) return true;
+    if (*b < *a) return false;
+  }
+  return a == lhs.end() && b != rhs.end();
+}
+
+/** @brief Return true when `lhs` is not lexicographically greater than `rhs`. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator<=(const map<K, V, N, Compare>& lhs, const map<K, V, M, Compare>& rhs) { return !(rhs < lhs); }
+
+/** @brief Return true when `lhs` is lexicographically greater than `rhs`. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator>(const map<K, V, N, Compare>& lhs, const map<K, V, M, Compare>& rhs) { return rhs < lhs; }
+
+/** @brief Return true when `lhs` is not lexicographically less than `rhs`. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator>=(const map<K, V, N, Compare>& lhs, const map<K, V, M, Compare>& rhs) { return !(lhs < rhs); }
 
 } // namespace sstl
 

@@ -25,65 +25,65 @@
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_init(NAME* d); \
+  SSTL_C_INLINE void NAME##_init(NAME* d); \
   /** \
    * @brief Run the generated clear operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_clear(NAME* d); \
+  SSTL_C_INLINE void NAME##_clear(NAME* d); \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* d); \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* d); \
   /** \
    * @brief Run the generated capacity operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* d); \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* d); \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* d); \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* d); \
   /** \
    * @brief Run the generated full operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_full(const NAME* d); \
+  SSTL_C_INLINE bool NAME##_full(const NAME* d); \
   /** \
    * @brief Run the generated push back operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_push_back(NAME* d, T x); \
+  SSTL_C_INLINE bool NAME##_push_back(NAME* d, T x); \
   /** \
    * @brief Run the generated try push back operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_push_back(NAME* d, T x); \
+  SSTL_C_INLINE bool NAME##_try_push_back(NAME* d, T x); \
   /** \
    * @brief Run the generated push front operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_push_front(NAME* d, T x); \
+  SSTL_C_INLINE bool NAME##_push_front(NAME* d, T x); \
   /** \
    * @brief Run the generated try push front operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_push_front(NAME* d, T x); \
+  SSTL_C_INLINE bool NAME##_try_push_front(NAME* d, T x); \
   /** \
    * @brief Run the generated insert operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -91,7 +91,7 @@
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_insert(NAME* d, size_t pos, T x); \
+  SSTL_C_INLINE bool NAME##_insert(NAME* d, size_t pos, T x); \
   /** \
    * @brief Run the generated try insert operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -99,21 +99,35 @@
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_insert(NAME* d, size_t pos, T x); \
+  SSTL_C_INLINE bool NAME##_try_insert(NAME* d, size_t pos, T x); \
   /** \
    * @brief Run the generated pop back operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_pop_back(NAME* d, T* out); \
+  SSTL_C_INLINE bool NAME##_pop_back(NAME* d, T* out); \
+  /** \
+   * @brief Try to remove the back element without invoking the active error policy. \
+   * @param d Deque instance. \
+   * @param out Caller-provided destination for produced values. \
+   * @return `true` on success; otherwise `false` without invoking the panic policy. \
+   */ \
+  SSTL_C_INLINE bool NAME##_try_pop_back(NAME* d, T* out); \
   /** \
    * @brief Run the generated pop front operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_pop_front(NAME* d, T* out); \
+  SSTL_C_INLINE bool NAME##_pop_front(NAME* d, T* out); \
+  /** \
+   * @brief Try to remove the front element without invoking the active error policy. \
+   * @param d Deque instance. \
+   * @param out Caller-provided destination for produced values. \
+   * @return `true` on success; otherwise `false` without invoking the panic policy. \
+   */ \
+  SSTL_C_INLINE bool NAME##_try_pop_front(NAME* d, T* out); \
   /** \
    * @brief Run the generated erase operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -121,7 +135,7 @@
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_erase(NAME* d, size_t pos, T* out); \
+  SSTL_C_INLINE bool NAME##_erase(NAME* d, size_t pos, T* out); \
   /** \
    * @brief Run the generated try erase operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -129,7 +143,7 @@
    * @param out Caller-provided destination for produced values. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_erase(NAME* d, size_t pos, T* out); \
+  SSTL_C_INLINE bool NAME##_try_erase(NAME* d, size_t pos, T* out); \
   /** \
    * @brief Run the generated resize operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -137,7 +151,7 @@
    * @param fill Value used for newly created slots. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_resize(NAME* d, size_t n, T fill); \
+  SSTL_C_INLINE bool NAME##_resize(NAME* d, size_t n, T fill); \
   /** \
    * @brief Run the generated try resize operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -145,28 +159,52 @@
    * @param fill Value used for newly created slots. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_resize(NAME* d, size_t n, T fill); \
+  SSTL_C_INLINE bool NAME##_try_resize(NAME* d, size_t n, T fill); \
   /** \
    * @brief Run the generated swap operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_swap(NAME* a, NAME* b); \
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b); \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* d, size_t i); \
+  SSTL_C_INLINE T* NAME##_at(NAME* d, size_t i); \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* d, size_t i);
+  SSTL_C_INLINE T* NAME##_try_at(NAME* d, size_t i); \
+  /** \
+   * @brief Return a pointer to the front element, or null when empty under RETURN policy. \
+   * @param d Deque instance. \
+   * @return Pointer to the front element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_front(NAME* d); \
+  /** \
+   * @brief Return a pointer to the front element, or null when empty. \
+   * @param d Deque instance. \
+   * @return Pointer to the front element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* d); \
+  /** \
+   * @brief Return a pointer to the back element, or null when empty under RETURN policy. \
+   * @param d Deque instance. \
+   * @return Pointer to the back element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_back(NAME* d); \
+  /** \
+   * @brief Return a pointer to the back element, or null when empty. \
+   * @param d Deque instance. \
+   * @return Pointer to the back element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* d);
 
 /** @def SSTL_DEQUE_DEFINE
  * @brief Define the typed C SSTL API family generated by `SSTL_DEQUE_DEFINE`.
@@ -177,65 +215,65 @@
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_init(NAME* d) { d->head = 0u; d->size = 0u; } \
+  SSTL_C_INLINE void NAME##_init(NAME* d) { d->head = 0u; d->size = 0u; } \
   /** \
    * @brief Run the generated clear operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_clear(NAME* d) { d->head = 0u; d->size = 0u; } \
+  SSTL_C_INLINE void NAME##_clear(NAME* d) { d->head = 0u; d->size = 0u; } \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* d) { return d->size; } \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* d) { return d->size; } \
   /** \
    * @brief Run the generated capacity operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* d) { (void)d; return (size_t)(CAP); } \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* d) { (void)d; return (size_t)(CAP); } \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* d) { return d->size == 0u; } \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* d) { return d->size == 0u; } \
   /** \
    * @brief Run the generated full operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_full(const NAME* d) { return d->size == (size_t)(CAP); } \
+  SSTL_C_INLINE bool NAME##_full(const NAME* d) { return d->size == (size_t)(CAP); } \
   /** \
    * @brief Run the generated push back operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_push_back(NAME* d, T x) { if (d->size == (size_t)(CAP)) { SSTL_C_PANIC("deque full"); return false; } d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))] = x; ++d->size; return true; } \
+  SSTL_C_INLINE bool NAME##_push_back(NAME* d, T x) { if (d->size == (size_t)(CAP)) { SSTL_C_PANIC("deque full"); return false; } d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))] = x; ++d->size; return true; } \
   /** \
    * @brief Run the generated try push back operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_push_back(NAME* d, T x) { if (d->size == (size_t)(CAP)) return false; d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))] = x; ++d->size; return true; } \
+  SSTL_C_INLINE bool NAME##_try_push_back(NAME* d, T x) { if (d->size == (size_t)(CAP)) return false; d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))] = x; ++d->size; return true; } \
   /** \
    * @brief Run the generated push front operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_push_front(NAME* d, T x) { if (d->size == (size_t)(CAP)) { SSTL_C_PANIC("deque full"); return false; } d->head = (d->head + ((CAP) == 0 ? 1u : (size_t)(CAP)) - 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); d->data[d->head] = x; ++d->size; return true; } \
+  SSTL_C_INLINE bool NAME##_push_front(NAME* d, T x) { if (d->size == (size_t)(CAP)) { SSTL_C_PANIC("deque full"); return false; } d->head = (d->head + ((CAP) == 0 ? 1u : (size_t)(CAP)) - 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); d->data[d->head] = x; ++d->size; return true; } \
   /** \
    * @brief Run the generated try push front operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_push_front(NAME* d, T x) { if (d->size == (size_t)(CAP)) return false; d->head = (d->head + ((CAP) == 0 ? 1u : (size_t)(CAP)) - 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); d->data[d->head] = x; ++d->size; return true; } \
+  SSTL_C_INLINE bool NAME##_try_push_front(NAME* d, T x) { if (d->size == (size_t)(CAP)) return false; d->head = (d->head + ((CAP) == 0 ? 1u : (size_t)(CAP)) - 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); d->data[d->head] = x; ++d->size; return true; } \
   /** \
    * @brief Run the generated insert operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -243,7 +281,7 @@
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_insert(NAME* d, size_t pos, T x) { if (pos > d->size || d->size == (size_t)(CAP)) { SSTL_C_PANIC("deque insert"); return false; } return NAME##_try_insert(d, pos, x); } \
+  SSTL_C_INLINE bool NAME##_insert(NAME* d, size_t pos, T x) { if (pos > d->size || d->size == (size_t)(CAP)) { SSTL_C_PANIC("deque insert"); return false; } return NAME##_try_insert(d, pos, x); } \
   /** \
    * @brief Run the generated try insert operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -251,21 +289,35 @@
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_insert(NAME* d, size_t pos, T x) { size_t i; if (pos > d->size || d->size == (size_t)(CAP)) return false; if (pos == 0u) return NAME##_try_push_front(d, x); if (pos == d->size) return NAME##_try_push_back(d, x); ++d->size; for (i = d->size - 1u; i != pos; --i) *NAME##_at(d, i) = *NAME##_at(d, i - 1u); *NAME##_at(d, pos) = x; return true; } \
+  SSTL_C_INLINE bool NAME##_try_insert(NAME* d, size_t pos, T x) { size_t i; if (pos > d->size || d->size == (size_t)(CAP)) return false; if (pos == 0u) return NAME##_try_push_front(d, x); if (pos == d->size) return NAME##_try_push_back(d, x); ++d->size; for (i = d->size - 1u; i != pos; --i) *NAME##_at(d, i) = *NAME##_at(d, i - 1u); *NAME##_at(d, pos) = x; return true; } \
   /** \
    * @brief Run the generated pop back operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_pop_back(NAME* d, T* out) { if (d->size == 0u) { SSTL_C_PANIC("deque empty"); return false; } --d->size; if (out) *out = d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))]; return true; } \
+  SSTL_C_INLINE bool NAME##_pop_back(NAME* d, T* out) { if (d->size == 0u) { SSTL_C_PANIC("deque empty"); return false; } --d->size; if (out) *out = d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))]; return true; } \
+  /** \
+   * @brief Try to remove the back element without invoking the active error policy. \
+   * @param d Deque instance. \
+   * @param out Caller-provided destination for produced values. \
+   * @return `true` on success; otherwise `false` without invoking the panic policy. \
+   */ \
+  SSTL_C_INLINE bool NAME##_try_pop_back(NAME* d, T* out) { if (d->size == 0u) return false; --d->size; if (out) *out = d->data[(d->head + d->size) % ((CAP) == 0 ? 1u : (size_t)(CAP))]; return true; } \
   /** \
    * @brief Run the generated pop front operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_pop_front(NAME* d, T* out) { if (d->size == 0u) { SSTL_C_PANIC("deque empty"); return false; } if (out) *out = d->data[d->head]; d->head = (d->head + 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); --d->size; return true; } \
+  SSTL_C_INLINE bool NAME##_pop_front(NAME* d, T* out) { if (d->size == 0u) { SSTL_C_PANIC("deque empty"); return false; } if (out) *out = d->data[d->head]; d->head = (d->head + 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); --d->size; return true; } \
+  /** \
+   * @brief Try to remove the front element without invoking the active error policy. \
+   * @param d Deque instance. \
+   * @param out Caller-provided destination for produced values. \
+   * @return `true` on success; otherwise `false` without invoking the panic policy. \
+   */ \
+  SSTL_C_INLINE bool NAME##_try_pop_front(NAME* d, T* out) { if (d->size == 0u) return false; if (out) *out = d->data[d->head]; d->head = (d->head + 1u) % ((CAP) == 0 ? 1u : (size_t)(CAP)); --d->size; return true; } \
   /** \
    * @brief Run the generated erase operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -273,7 +325,7 @@
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_erase(NAME* d, size_t pos, T* out) { if (pos >= d->size) { SSTL_C_PANIC("deque erase"); return false; } return NAME##_try_erase(d, pos, out); } \
+  SSTL_C_INLINE bool NAME##_erase(NAME* d, size_t pos, T* out) { if (pos >= d->size) { SSTL_C_PANIC("deque erase"); return false; } return NAME##_try_erase(d, pos, out); } \
   /** \
    * @brief Run the generated try erase operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -281,7 +333,7 @@
    * @param out Caller-provided destination for produced values. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_erase(NAME* d, size_t pos, T* out) { size_t i; if (pos >= d->size) return false; if (pos == 0u) return NAME##_pop_front(d, out); if (pos + 1u == d->size) return NAME##_pop_back(d, out); if (out) *out = *NAME##_at(d, pos); for (i = pos; i + 1u != d->size; ++i) *NAME##_at(d, i) = *NAME##_at(d, i + 1u); --d->size; return true; } \
+  SSTL_C_INLINE bool NAME##_try_erase(NAME* d, size_t pos, T* out) { size_t i; if (pos >= d->size) return false; if (pos == 0u) return NAME##_pop_front(d, out); if (pos + 1u == d->size) return NAME##_pop_back(d, out); if (out) *out = *NAME##_at(d, pos); for (i = pos; i + 1u != d->size; ++i) *NAME##_at(d, i) = *NAME##_at(d, i + 1u); --d->size; return true; } \
   /** \
    * @brief Run the generated resize operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -289,7 +341,7 @@
    * @param fill Value used for newly created slots. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_resize(NAME* d, size_t n, T fill) { if (n > (size_t)(CAP)) { SSTL_C_PANIC("deque resize"); return false; } return NAME##_try_resize(d, n, fill); } \
+  SSTL_C_INLINE bool NAME##_resize(NAME* d, size_t n, T fill) { if (n > (size_t)(CAP)) { SSTL_C_PANIC("deque resize"); return false; } return NAME##_try_resize(d, n, fill); } \
   /** \
    * @brief Run the generated try resize operation for this typed SSTL family. \
    * @param d Deque instance. \
@@ -297,27 +349,51 @@
    * @param fill Value used for newly created slots. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_resize(NAME* d, size_t n, T fill) { if (n > (size_t)(CAP)) return false; while (d->size < n) (void)NAME##_try_push_back(d, fill); while (d->size > n) (void)NAME##_pop_back(d, 0); return true; } \
+  SSTL_C_INLINE bool NAME##_try_resize(NAME* d, size_t n, T fill) { if (n > (size_t)(CAP)) return false; while (d->size < n) (void)NAME##_try_push_back(d, fill); while (d->size > n) (void)NAME##_pop_back(d, 0); return true; } \
   /** \
    * @brief Run the generated swap operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_swap(NAME* a, NAME* b) { NAME tmp = *a; *a = *b; *b = tmp; } \
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b) { NAME tmp = *a; *a = *b; *b = tmp; } \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* d, size_t i) { if (i >= d->size) { SSTL_C_PANIC("deque at"); return 0; } return &d->data[(d->head + i) % ((CAP) == 0 ? 1u : (size_t)(CAP))]; } \
+  SSTL_C_INLINE T* NAME##_at(NAME* d, size_t i) { if (i >= d->size) { SSTL_C_PANIC("deque at"); return 0; } return &d->data[(d->head + i) % ((CAP) == 0 ? 1u : (size_t)(CAP))]; } \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param d Deque instance. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* d, size_t i) { return i < d->size ? &d->data[(d->head + i) % ((CAP) == 0 ? 1u : (size_t)(CAP))] : 0; }
+  SSTL_C_INLINE T* NAME##_try_at(NAME* d, size_t i) { return i < d->size ? &d->data[(d->head + i) % ((CAP) == 0 ? 1u : (size_t)(CAP))] : 0; } \
+  /** \
+   * @brief Return a pointer to the front element, or null when empty under RETURN policy. \
+   * @param d Deque instance. \
+   * @return Pointer to the front element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_front(NAME* d) { if (d->size == 0u) { SSTL_C_PANIC("deque front"); return 0; } return NAME##_at(d, 0u); } \
+  /** \
+   * @brief Return a pointer to the front element, or null when empty. \
+   * @param d Deque instance. \
+   * @return Pointer to the front element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* d) { return d->size == 0u ? 0 : NAME##_try_at(d, 0u); } \
+  /** \
+   * @brief Return a pointer to the back element, or null when empty under RETURN policy. \
+   * @param d Deque instance. \
+   * @return Pointer to the back element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_back(NAME* d) { if (d->size == 0u) { SSTL_C_PANIC("deque back"); return 0; } return NAME##_at(d, d->size - 1u); } \
+  /** \
+   * @brief Return a pointer to the back element, or null when empty. \
+   * @param d Deque instance. \
+   * @return Pointer to the back element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* d) { return d->size == 0u ? 0 : NAME##_try_at(d, d->size - 1u); }
 #endif
 

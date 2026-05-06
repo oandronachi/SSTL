@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file string.hpp
  * @brief C++03 SSTL public header with static, allocation-free API surface.
  *
@@ -80,9 +80,9 @@ public:
   /** @brief Unsigned size and index type used by the string. */
   typedef size_t size_type;
   /** @brief Mutable contiguous iterator over the non-null character range. */
-  typedef contiguous_iterator<char> iterator;
+  typedef char* iterator;
   /** @brief Const contiguous iterator over the non-null character range. */
-  typedef contiguous_iterator<const char> const_iterator;
+  typedef const char* const_iterator;
   /** @brief Mutable reverse iterator over non-null characters. */
   typedef reverse_pointer_iterator<char> reverse_iterator;
   /** @brief Const reverse iterator over non-null characters. */
@@ -209,41 +209,33 @@ public:
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(iterator it) const { return it.base() >= data_ && it.base() <= data_ + size_; } // LCOV_EXCL_BR_LINE
+  bool is_valid_iterator(iterator it) const { return it >= data_ && it <= data_ + size_; } // LCOV_EXCL_BR_LINE
 
   /**
    * @brief Validate that a const iterator lies in the non-null character range or end.
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(const_iterator it) const { return it.base() >= data_ && it.base() <= data_ + size_; } // LCOV_EXCL_BR_LINE
-
-  /**
-   * @brief Validate that a mutable raw pointer lies in the non-null character range or end.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(char* it) const { return it >= data_ && it <= data_ + size_; } // LCOV_EXCL_BR_LINE
-
-  /**
-   * @brief Validate that a const raw pointer lies in the non-null character range or end.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(const char* it) const { return it >= data_ && it <= data_ + size_; } // LCOV_EXCL_BR_LINE
+  bool is_valid_iterator(const_iterator it) const { return it >= data_ && it <= data_ + size_; } // LCOV_EXCL_BR_LINE
 
   /**
    * @brief Access character `i` without bounds checking.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  char& operator[](size_type i) { return data_[i]; }
+  char& operator[](size_type i) {
+    if (i >= size_) return fail_reference<char>("string::operator[]"); // LCOV_EXCL_BR_LINE
+    return data_[i];
+  }
   /**
    * @brief Const access character `i` without bounds checking.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  const char& operator[](size_type i) const { return data_[i]; }
+  const char& operator[](size_type i) const {
+    if (i >= size_) return fail_reference<const char>("string::operator[]"); // LCOV_EXCL_BR_LINE
+    return data_[i];
+  }
 
   /**
    * @brief Access character `i`, applying the active error policy when out of range.
@@ -251,7 +243,7 @@ public:
    * @return Result described by the function brief.
    */
   char& at(size_type i) {
-    if (i >= size_) handle_error("string::at");
+    if (i >= size_) return fail_reference<char>("string::at"); // LCOV_EXCL_BR_LINE
     return data_[i];
   }
   /**
@@ -260,7 +252,7 @@ public:
    * @return Result described by the function brief.
    */
   const char& at(size_type i) const {
-    if (i >= size_) handle_error("string::at");
+    if (i >= size_) return fail_reference<const char>("string::at"); // LCOV_EXCL_BR_LINE
     return data_[i];
   }
   /**
@@ -290,12 +282,18 @@ public:
    * @brief Access the last character through `at(size() - 1)`.
    * @return Result described by the function brief.
    */
-  char& back() { return at(size_ - 1); }
+  char& back() {
+    if (empty()) return fail_reference<char>("string::back"); // LCOV_EXCL_BR_LINE
+    return at(size_ - 1);
+  }
   /**
    * @brief Const access the last character through `at(size() - 1)`.
    * @return Result described by the function brief.
    */
-  const char& back() const { return at(size_ - 1); }
+  const char& back() const {
+    if (empty()) return fail_reference<const char>("string::back"); // LCOV_EXCL_BR_LINE
+    return at(size_ - 1);
+  }
   /**
    * @brief Return a pointer to the first character, or null when empty.
    * @return A pointer to the first character, or null when empty.
@@ -337,13 +335,21 @@ public:
 
   /**
    * @brief Remove the last character while preserving null termination.
-   * @return `true` when a character was removed; `false` when the string was empty.
+   * Empty-string behavior follows `SSTL_ON_ERROR`; under RETURN the operation
+   * leaves the string unchanged.
    */
-  bool pop_back() {
-    if (empty()) {
+  void pop_back() {
+    if (!try_pop_back()) {
       handle_error("string::pop_back empty");
-      return false;
     }
+  }
+
+  /**
+   * @brief Try to remove the last character without invoking the active error policy.
+   * @return `true` when a character was removed; `false` when already empty.
+   */
+  bool try_pop_back() {
+    if (empty()) return false;
     --size_;
     data_[size_] = '\0';
     return true;
@@ -447,9 +453,55 @@ public:
       handle_error("string::append full");
       return false;
     }
+    char temp[N == 0 ? 1 : N];
+    if (source_overlaps_storage(s, n)) {
+      copy_chars(temp, s, n);
+      s = temp;
+    }
     for (size_type i = 0; i != n; ++i) {
       data_[size_++] = s[i];
     }
+    data_[size_] = '\0';
+    return true;
+  }
+
+  /**
+   * @brief Append another fixed-capacity string.
+   * @param s Source string.
+   * @return `true` when the whole source fit.
+   */
+  template <size_t M>
+  bool append(const string<M>& s) { return append(s.c_str(), s.size()); }
+
+  /**
+   * @brief Append a substring of another fixed-capacity string.
+   * @param s Source string.
+   * @param pos First source character.
+   * @param count Maximum number of source characters.
+   * @return `true` when the requested characters fit.
+   */
+  template <size_t M>
+  bool append(const string<M>& s, size_type pos, size_type count = npos) {
+    if (pos > s.size()) {
+      handle_error("string::append pos");
+      return false;
+    }
+    size_type n = count == npos || count > s.size() - pos ? s.size() - pos : count;
+    return append(s.c_str() + pos, n);
+  }
+
+  /**
+   * @brief Append `count` copies of `c`.
+   * @param count Requested character count.
+   * @param c Character value.
+   * @return `true` when all characters fit.
+   */
+  bool append(size_type count, char c) {
+    if (count > N - size_) {
+      handle_error("string::append full");
+      return false;
+    }
+    for (size_type i = 0u; i != count; ++i) data_[size_++] = c;
     data_[size_] = '\0';
     return true;
   }
@@ -490,8 +542,53 @@ public:
       handle_error("string::assign full");
       return false;
     }
+    char temp[N == 0 ? 1 : N];
+    if (source_overlaps_storage(s, n)) {
+      copy_chars(temp, s, n);
+      s = temp;
+    }
     clear();
     return append(s, n);
+  }
+
+  /**
+   * @brief Replace the current contents with another fixed-capacity string.
+   * @param s Source string.
+   * @return `true` when assignment completed.
+   */
+  template <size_t M>
+  bool assign(const string<M>& s) { return assign(s.c_str(), s.size()); }
+
+  /**
+   * @brief Replace the current contents with a substring of another string.
+   * @param s Source string.
+   * @param pos First source character.
+   * @param count Maximum number of characters to copy.
+   * @return `true` when assignment completed.
+   */
+  template <size_t M>
+  bool assign(const string<M>& s, size_type pos, size_type count = npos) {
+    if (pos > s.size()) {
+      handle_error("string::assign pos");
+      return false;
+    }
+    size_type n = count == npos || count > s.size() - pos ? s.size() - pos : count;
+    return assign(s.c_str() + pos, n);
+  }
+
+  /**
+   * @brief Replace the current contents with `count` copies of `c`.
+   * @param count Requested character count.
+   * @param c Character value.
+   * @return `true` when assignment completed.
+   */
+  bool assign(size_type count, char c) {
+    if (count > N) {
+      handle_error("string::assign full");
+      return false;
+    }
+    clear();
+    return append(count, c);
   }
 
   /**
@@ -543,13 +640,77 @@ public:
   bool insert(size_type pos, const char* s) {
     const size_type n = cstrlen(s);
     if (n == 0u) return pos <= size_;
+    return insert(pos, s, n);
+  }
+
+  /**
+   * @brief Insert the first `n` characters of `s` before `pos`.
+   * @param pos Zero-based logical position.
+   * @param s Source character range.
+   * @param n Number of characters to insert.
+   * @return `true` when insertion completed.
+   */
+  bool insert(size_type pos, const char* s, size_type n) {
     if (pos > size_ || n > N - size_) {
       handle_error("string::insert");
       return false;
     }
+    if (n == 0u) return true;
+    char temp[N == 0 ? 1 : N];
+    if (source_overlaps_storage(s, n)) {
+      copy_chars(temp, s, n);
+      s = temp;
+    }
     for (size_type i = size_; i != pos; --i) data_[i + n - 1u] = data_[i - 1u];
-    for (size_type i = 0; i != n; ++i) data_[pos + i] = s[i];
+    for (size_type i = 0u; i != n; ++i) data_[pos + i] = s[i];
     size_ += n;
+    data_[size_] = '\0';
+    return true;
+  }
+
+  /**
+   * @brief Insert another fixed-capacity string before `pos`.
+   * @param pos Zero-based logical position.
+   * @param s Source string.
+   * @return `true` when insertion completed.
+   */
+  template <size_t M>
+  bool insert(size_type pos, const string<M>& s) { return insert(pos, s.c_str(), s.size()); }
+
+  /**
+   * @brief Insert a substring of another fixed-capacity string before `pos`.
+   * @param pos Zero-based logical position.
+   * @param s Source string.
+   * @param subpos First source character.
+   * @param count Maximum number of source characters.
+   * @return `true` when insertion completed.
+   */
+  template <size_t M>
+  bool insert(size_type pos, const string<M>& s, size_type subpos, size_type count = npos) {
+    if (subpos > s.size()) {
+      handle_error("string::insert subpos");
+      return false;
+    }
+    size_type n = count == npos || count > s.size() - subpos ? s.size() - subpos : count;
+    return insert(pos, s.c_str() + subpos, n);
+  }
+
+  /**
+   * @brief Insert `count` copies of `c` before `pos`.
+   * @param pos Zero-based logical position.
+   * @param count Requested character count.
+   * @param c Character value.
+   * @return `true` when insertion completed.
+   */
+  bool insert(size_type pos, size_type count, char c) {
+    if (pos > size_ || count > N - size_) {
+      handle_error("string::insert count");
+      return false;
+    }
+    if (count == 0u) return true;
+    for (size_type i = size_; i != pos; --i) data_[i + count - 1u] = data_[i - 1u];
+    for (size_type i = 0u; i != count; ++i) data_[pos + i] = c;
+    size_ += count;
     data_[size_] = '\0';
     return true;
   }
@@ -573,7 +734,7 @@ public:
    * @param count Requested element or character count.
    * @return Result described by the function brief.
    */
-  string& erase(size_type pos, size_type count) {
+  string& erase(size_type pos = 0, size_type count = npos) {
     if (pos > size_) {
       handle_error("string::erase");
       return *this;
@@ -593,6 +754,18 @@ public:
    */
   bool replace(size_type pos, size_type count, const char* s) {
     const size_type n = cstrlen(s);
+    return replace(pos, count, s, n);
+  }
+
+  /**
+   * @brief Replace a substring with an explicit-length character range.
+   * @param pos Zero-based logical position.
+   * @param count Number of existing characters to replace.
+   * @param s Source character range.
+   * @param n Number of source characters.
+   * @return `true` when replacement completed.
+   */
+  bool replace(size_type pos, size_type count, const char* s, size_type n) {
     if (pos > size_) {
       handle_error("string::replace");
       return false;
@@ -602,15 +775,46 @@ public:
       handle_error("string::replace full");
       return false;
     }
+    char temp[N == 0 ? 1 : N];
+    if (source_overlaps_storage(s, n)) {
+      copy_chars(temp, s, n);
+      s = temp;
+    }
     if (n < count) {
       for (size_type i = pos + count; i <= size_; ++i) data_[i - (count - n)] = data_[i];
     } else if (n > count) {
       for (size_type i = size_ + 1u; i != pos + count; --i) data_[i + (n - count) - 1u] = data_[i - 1u];
     }
-    for (size_type i = 0; i != n; ++i) data_[pos + i] = s[i];
+    for (size_type i = 0u; i != n; ++i) data_[pos + i] = s[i];
     size_ = size_ - count + n;
     data_[size_] = '\0';
     return true;
+  }
+
+  /**
+   * @brief Replace a substring with another fixed-capacity string.
+   * @param pos Zero-based logical position.
+   * @param count Number of existing characters to replace.
+   * @param s Source string.
+   * @return `true` when replacement completed.
+   */
+  template <size_t M>
+  bool replace(size_type pos, size_type count, const string<M>& s) {
+    return replace(pos, count, s.c_str(), s.size());
+  }
+
+  /**
+   * @brief Replace a substring with `n` copies of `c`.
+   * @param pos Zero-based logical position.
+   * @param count Number of existing characters to replace.
+   * @param n Number of replacement characters.
+   * @param c Character value.
+   * @return `true` when replacement completed.
+   */
+  bool replace(size_type pos, size_type count, size_type n, char c) {
+    string<N> tmp;
+    if (!tmp.append(n, c)) return false; // LCOV_EXCL_BR_LINE
+    return replace(pos, count, tmp.c_str(), n);
   }
 
   /**
@@ -629,24 +833,24 @@ public:
   }
 
   /**
-   * @brief Append a null-terminated string and return this string.
+   * @brief Append a null-terminated string and report whether it fit.
    * @param s String or set instance.
    * @return Result described by the function brief.
    */
-  string& operator+=(const char* s) { append(s); return *this; }
+  bool operator+=(const char* s) { return append(s); }
   /**
-   * @brief Append another fixed-capacity string and return this string.
+   * @brief Append another fixed-capacity string and report whether it fit.
    * @param s String or set instance.
    * @return Result described by the function brief.
    */
   template <size_t M>
-  string& operator+=(const string<M>& s) { append(s.c_str(), s.size()); return *this; }
+  bool operator+=(const string<M>& s) { return append(s.c_str(), s.size()); }
   /**
-   * @brief Append one character and return this string.
+   * @brief Append one character and report whether it fit.
    * @param c Character value.
    * @return Result described by the function brief.
    */
-  string& operator+=(char c) { push_back(c); return *this; }
+  bool operator+=(char c) { return push_back(c); }
 
   /**
    * @brief Lexicographically compare this string with a C string.
@@ -674,11 +878,38 @@ public:
     if (!needle || pos > size_) return npos;
     size_type nl = cstrlen(needle);
     if (nl == 0) return pos;
-    for (size_type i = pos; i + nl <= size_; ++i) {
+    if (nl > size_ - pos) return npos;
+    for (size_type i = pos; i <= size_ - nl; ++i) {
       if (cmemcmp(data_ + i, needle, nl) == 0) return i;
     }
     return npos;
   }
+
+  /**
+   * @brief Find an explicit-length character range at or after `pos`.
+   * @param needle Pointer to the first search character.
+   * @param pos First position considered.
+   * @param n Number of search characters.
+   * @return Match position, or `npos` when absent.
+   */
+  size_type find(const char* needle, size_type pos, size_type n) const {
+    if (!needle || pos > size_) return npos;
+    if (n == 0u) return pos;
+    if (n > size_ - pos) return npos;
+    for (size_type i = pos; i <= size_ - n; ++i) {
+      if (cmemcmp(data_ + i, needle, n) == 0) return i;
+    }
+    return npos;
+  }
+
+  /**
+   * @brief Find another fixed-capacity string at or after `pos`.
+   * @param needle String to search for.
+   * @param pos First position considered.
+   * @return Match position, or `npos` when absent.
+   */
+  template <size_t M>
+  size_type find(const string<M>& needle, size_type pos = 0) const { return find(needle.c_str(), pos, needle.size()); }
 
   /**
    * @brief Find the first character at or after `pos` that belongs to `chars`.
@@ -881,6 +1112,35 @@ public:
   }
 
   /**
+   * @brief Find the last occurrence of an explicit-length character range.
+   * @param needle Pointer to the first search character.
+   * @param pos Last position considered.
+   * @param n Number of search characters.
+   * @return Match position, or `npos` when absent.
+   */
+  size_type rfind(const char* needle, size_type pos, size_type n) const {
+    if (!needle) return npos;
+    if (n == 0u) return pos == npos || pos > size_ ? size_ : pos;
+    if (n > size_) return npos;
+    size_type start = size_ - n;
+    if (pos != npos && pos < start) start = pos;
+    for (size_type i = start + 1u; i != 0u; --i) {
+      size_type current = i - 1u;
+      if (cmemcmp(data_ + current, needle, n) == 0) return current;
+    }
+    return npos;
+  }
+
+  /**
+   * @brief Find the last occurrence of another fixed-capacity string.
+   * @param needle String to search for.
+   * @param pos Last position considered.
+   * @return Match position, or `npos` when absent.
+   */
+  template <size_t M>
+  size_type rfind(const string<M>& needle, size_type pos = npos) const { return rfind(needle.c_str(), pos, needle.size()); }
+
+  /**
    * @brief Find the last occurrence of character `c` at or before `pos`.
    * @param c Character value.
    * @param pos Zero-based logical position.
@@ -913,9 +1173,14 @@ public:
    * @param count Maximum number of characters to copy.
    * @return A new `string<N>` containing up to `count` characters.
    */
-  string substr(size_type pos, size_type count) const {
+  string substr(size_type pos, size_type count = npos) const {
     string out;
-    for (size_type i = 0; i != count && pos + i < size_; ++i) out.push_back(data_[pos + i]);
+    if (pos > size_) {
+      handle_error("string::substr");
+      return out;
+    }
+    size_type n = count == npos || count > size_ - pos ? size_ - pos : count;
+    for (size_type i = 0; i != n; ++i) out.push_back(data_[pos + i]);
     return out;
   }
 
@@ -1011,6 +1276,32 @@ public:
   bool operator>=(const string<M>& rhs) const { return compare(rhs) >= 0; }
 
 private:
+  /**
+   * @brief Copy `n` characters between already-validated character ranges.
+   * @param dest Destination range.
+   * @param src Source range.
+   * @param n Requested count or size.
+   */
+  static void copy_chars(char* dest, const char* src, size_type n) {
+    for (size_type i = 0u; i != n; ++i) dest[i] = src[i];
+  }
+
+  /**
+   * @brief Report whether a source character range aliases this string storage.
+   * @param s Source character range.
+   * @param n Requested count or size.
+   * @return True when any source character is currently inside `data_`.
+   */
+  bool source_overlaps_storage(const char* s, size_type n) const {
+    if (!s || n == 0u) return false;
+    for (size_type i = 0u; i != n; ++i) {
+      for (size_type j = 0u; j <= N; ++j) {
+        if (s + i == data_ + j) return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * @brief Return true when `c` appears in the null-terminated character set.
    * @param c Character value.

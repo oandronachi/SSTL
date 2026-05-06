@@ -107,7 +107,11 @@ public:
    * @param pos Zero-based logical position.
    * @return Result described by the function brief.
    */
-  bitset& reset(size_type pos) { data_[pos / bits] &= ~(word_type(1) << (pos % bits)); return *this; }
+  bitset& reset(size_type pos) {
+    if (pos >= N) return fail_reference<bitset>("bitset::reset"); // LCOV_EXCL_BR_LINE
+    data_[pos / bits] &= ~(word_type(1) << (pos % bits));
+    return *this;
+  }
   /**
    * @brief Set every public bit and return this bitset.
    * @return This bitset after all public bits are set.
@@ -118,7 +122,11 @@ public:
    * @param pos Zero-based logical position.
    * @return Result described by the function brief.
    */
-  bitset& set(size_type pos) { data_[pos / bits] |= (word_type(1) << (pos % bits)); return *this; }
+  bitset& set(size_type pos) {
+    if (pos >= N) return fail_reference<bitset>("bitset::set"); // LCOV_EXCL_BR_LINE
+    data_[pos / bits] |= (word_type(1) << (pos % bits));
+    return *this;
+  }
   /**
    * @brief Set or clear one bit according to `value`.
    * @param pos Zero-based logical position.
@@ -131,7 +139,11 @@ public:
    * @param pos Zero-based logical position.
    * @return Result described by the function brief.
    */
-  bitset& flip(size_type pos) { data_[pos / bits] ^= (word_type(1) << (pos % bits)); return *this; }
+  bitset& flip(size_type pos) {
+    if (pos >= N) return fail_reference<bitset>("bitset::flip"); // LCOV_EXCL_BR_LINE
+    data_[pos / bits] ^= (word_type(1) << (pos % bits));
+    return *this;
+  }
   /**
    * @brief Toggle every public bit and mask off unused storage bits.
    * @return Result described by the function brief.
@@ -142,7 +154,10 @@ public:
    * @param pos Zero-based logical position.
    * @return True when bit `pos` is set.
    */
-  bool test(size_type pos) const { return (data_[pos / bits] & (word_type(1) << (pos % bits))) != 0u; }
+  bool test(size_type pos) const {
+    if (pos >= N) return fail_value<bool>("bitset::test"); // LCOV_EXCL_BR_LINE
+    return (data_[pos / bits] & (word_type(1) << (pos % bits))) != 0u;
+  }
   /**
    * @brief Return true when bit `pos` is set.
    * @param pos Zero-based logical position.
@@ -154,7 +169,10 @@ public:
    * @param pos Zero-based logical position.
    * @return Proxy that can read, assign, or flip the packed bit.
    */
-  reference operator[](size_type pos) { return reference(*this, pos); }
+  reference operator[](size_type pos) {
+    if (pos >= N) fail_contract("bitset::operator[]"); // LCOV_EXCL_BR_LINE
+    return reference(*this, pos);
+  }
   /**
    * @brief Return the number of public bits.
    * @return The number of public bits.
@@ -189,7 +207,7 @@ public:
    * @return The low storage word and report overflow when higher bits are set.
    */
   unsigned long to_ulong() const {
-    for (size_type i = bits; i != N; ++i) {
+    for (size_type i = bits; i < N; ++i) {
       if (test(i)) {
         handle_error("bitset::to_ulong overflow");
         break;

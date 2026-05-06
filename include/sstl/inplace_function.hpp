@@ -83,7 +83,10 @@ public:
  * @brief Invoke the stored callable through the fixed-storage wrapper.
  * @return Result described by the function brief.
  */
-  R operator()() const { return invoke_(const_cast<void*>(storage_.ptr())); }
+  R operator()() const {
+    if (!invoke_) return fail_value<R>("inplace_function::operator() empty"); // LCOV_EXCL_BR_LINE
+    return invoke_(const_cast<void*>(storage_.ptr()));
+  }
 /** @brief Reset this wrapper or storage object to its empty state. */
   void reset() { if (destroy_) destroy_(storage_.ptr()); invoke_ = 0; destroy_ = 0; copy_ = 0; }
 /**
@@ -173,7 +176,10 @@ public:
  * @return Result described by the function brief.
  * @param a0 First callable argument.
  */
-  R operator()(A0 a0) const { return invoke_(const_cast<void*>(storage_.ptr()), a0); }
+  R operator()(A0 a0) const {
+    if (!invoke_) return fail_value<R>("inplace_function::operator() empty"); // LCOV_EXCL_BR_LINE
+    return invoke_(const_cast<void*>(storage_.ptr()), a0);
+  }
 /** @brief Reset this wrapper or storage object to its empty state. */
   void reset() { if (destroy_) destroy_(storage_.ptr()); invoke_ = 0; destroy_ = 0; copy_ = 0; }
 /**
@@ -265,7 +271,10 @@ public:
  * @param a0 First callable argument.
  * @param a1 Second callable argument.
  */
-  R operator()(A0 a0, A1 a1) const { return invoke_(const_cast<void*>(storage_.ptr()), a0, a1); }
+  R operator()(A0 a0, A1 a1) const {
+    if (!invoke_) return fail_value<R>("inplace_function::operator() empty"); // LCOV_EXCL_BR_LINE
+    return invoke_(const_cast<void*>(storage_.ptr()), a0, a1);
+  }
 /** @brief Reset this wrapper or storage object to its empty state. */
   void reset() { if (destroy_) destroy_(storage_.ptr()); invoke_ = 0; destroy_ = 0; copy_ = 0; }
 /**
@@ -359,7 +368,10 @@ public:
  * @param a1 Second callable argument.
  * @param a2 Third callable argument.
  */
-  R operator()(A0 a0, A1 a1, A2 a2) const { return invoke_(const_cast<void*>(storage_.ptr()), a0, a1, a2); }
+  R operator()(A0 a0, A1 a1, A2 a2) const {
+    if (!invoke_) return fail_value<R>("inplace_function::operator() empty"); // LCOV_EXCL_BR_LINE
+    return invoke_(const_cast<void*>(storage_.ptr()), a0, a1, a2);
+  }
 /** @brief Reset this wrapper or storage object to its empty state. */
   void reset() { if (destroy_) destroy_(storage_.ptr()); invoke_ = 0; destroy_ = 0; copy_ = 0; }
 /**

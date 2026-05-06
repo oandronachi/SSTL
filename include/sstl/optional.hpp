@@ -15,6 +15,7 @@
 #define SSTL_OPTIONAL_HPP
 
 #include "config.hpp"
+#include "utility.hpp"
 
 namespace sstl {
 
@@ -89,22 +90,28 @@ public:
    * @brief Dereference the contained value; caller must ensure it is present.
    * @return Result described by the function brief.
    */
-  T& operator*() { return *storage_.ptr(0); }
+  T& operator*() { return has_ ? *storage_.ptr(0) : fail_reference<T>("optional::operator*"); } // LCOV_EXCL_BR_LINE
   /**
    * @brief Const-dereference the contained value; caller must ensure it is present.
    * @return Result described by the function brief.
    */
-  const T& operator*() const { return *storage_.ptr(0); }
+  const T& operator*() const { return has_ ? *storage_.ptr(0) : fail_reference<const T>("optional::operator*"); } // LCOV_EXCL_BR_LINE
   /**
    * @brief Access the contained value pointer; caller must ensure it is present.
    * @return Pointer described by the function brief, or null for probe-style failure cases.
    */
-  T* operator->() { return storage_.ptr(0); }
+  T* operator->() {
+    if (!has_) fail_contract("optional::operator->");
+    return storage_.ptr(0);
+  }
   /**
    * @brief Access the const contained value pointer; caller must ensure it is present.
    * @return Pointer described by the function brief, or null for probe-style failure cases.
    */
-  const T* operator->() const { return storage_.ptr(0); }
+  const T* operator->() const {
+    if (!has_) fail_contract("optional::operator->");
+    return storage_.ptr(0);
+  }
   /**
    * @brief Return the contained value pointer, or null when empty.
    * @return The contained value pointer, or null when empty.
@@ -120,7 +127,7 @@ public:
    * @return The contained value, following the active error policy when empty.
    */
   T& value() {
-    if (!has_) handle_error("optional::value");
+    if (!has_) return fail_reference<T>("optional::value"); // LCOV_EXCL_BR_LINE
     return *storage_.ptr(0);
   }
   /**
@@ -128,7 +135,7 @@ public:
    * @return The const contained value, following the active error policy when empty.
    */
   const T& value() const {
-    if (!has_) handle_error("optional::value");
+    if (!has_) return fail_reference<const T>("optional::value"); // LCOV_EXCL_BR_LINE
     return *storage_.ptr(0);
   }
   /**
@@ -142,6 +149,22 @@ public:
    * @param value Value supplied for comparison, assignment, insertion, or lookup.
    */
   void emplace(const T& value) { reset(); SSTL_CONSTRUCT_AT(storage_.ptr(0), value); has_ = true; }
+  /**
+   * @brief Exchange optional states with another optional.
+   * @param other Other optional participating in the operation.
+   */
+  void swap(optional& other) {
+    if (this == &other) return;
+    if (has_ && other.has_) {
+      sstl::swap(**this, *other);
+    } else if (has_) {
+      other.emplace(**this);
+      reset();
+    } else if (other.has_) {
+      emplace(*other);
+      other.reset();
+    }
+  }
 private:
   /** @brief Inline storage used only when `has_` is true. */
   raw_storage<T, 1> storage_;
@@ -196,6 +219,22 @@ inline bool operator==(const optional<T>& a, const optional<T>& b) {
  */
 template <class T>
 inline bool operator!=(const optional<T>& a, const optional<T>& b) { return !(a == b); }
+/** @brief Order two optionals, with empty ordered before present. */
+template <class T>
+inline bool operator<(const optional<T>& a, const optional<T>& b) {
+  if (!b.has_value()) return false;
+  if (!a.has_value()) return b.has_value();
+  return *a < *b;
+}
+/** @brief Return true when `a` is not greater than `b`. */
+template <class T>
+inline bool operator<=(const optional<T>& a, const optional<T>& b) { return !(b < a); }
+/** @brief Return true when `a` is greater than `b`. */
+template <class T>
+inline bool operator>(const optional<T>& a, const optional<T>& b) { return b < a; }
+/** @brief Return true when `a` is not less than `b`. */
+template <class T>
+inline bool operator>=(const optional<T>& a, const optional<T>& b) { return !(a < b); }
 /**
  * @brief Compare a present optional to a raw value.
  * @param a First operand or first range start.
@@ -212,6 +251,79 @@ inline bool operator==(const optional<T>& a, const T& b) { return a.has_value() 
  */
 template <class T>
 inline bool operator!=(const optional<T>& a, const T& b) { return !(a == b); }
+/** @brief Order an optional against a raw value. */
+template <class T>
+inline bool operator<(const optional<T>& a, const T& b) { return !a.has_value() || *a < b; }
+/** @brief Return true when an optional is not greater than a raw value. */
+template <class T>
+inline bool operator<=(const optional<T>& a, const T& b) { return !a.has_value() || !(*a > b); }
+/** @brief Return true when an optional is greater than a raw value. */
+template <class T>
+inline bool operator>(const optional<T>& a, const T& b) { return a.has_value() && *a > b; }
+/** @brief Return true when an optional is not less than a raw value. */
+template <class T>
+inline bool operator>=(const optional<T>& a, const T& b) { return a.has_value() && !(*a < b); }
+/**
+ * @brief Compare a raw value to a present optional.
+ * @param a First operand or first range start.
+ * @param b Second operand or second range start.
+ * @return `true` when the optional is present and equals the raw value.
+ */
+template <class T>
+inline bool operator==(const T& a, const optional<T>& b) { return b == a; }
+/**
+ * @brief Compare a raw value to an optional for inequality.
+ * @param a First operand or first range start.
+ * @param b Second operand or second range start.
+ * @return `true` when the operands are not equal.
+ */
+template <class T>
+inline bool operator!=(const T& a, const optional<T>& b) { return !(a == b); }
+/** @brief Order a raw value against an optional. */
+template <class T>
+inline bool operator<(const T& a, const optional<T>& b) { return b.has_value() && a < *b; }
+/** @brief Return true when a raw value is not greater than an optional. */
+template <class T>
+inline bool operator<=(const T& a, const optional<T>& b) { return b.has_value() ? !(a > *b) : false; }
+/** @brief Return true when a raw value is greater than an optional. */
+template <class T>
+inline bool operator>(const T& a, const optional<T>& b) { return !b.has_value() || a > *b; }
+/** @brief Return true when a raw value is not less than an optional. */
+template <class T>
+inline bool operator>=(const T& a, const optional<T>& b) { return b.has_value() ? !(a < *b) : true; }
+
+/** @brief Order an optional against the empty tag. */
+template <class T>
+inline bool operator<(const optional<T>&, nullopt_t) { return false; }
+/** @brief Return true when an optional is not greater than the empty tag. */
+template <class T>
+inline bool operator<=(const optional<T>& a, nullopt_t) { return !a.has_value(); }
+/** @brief Return true when an optional is greater than the empty tag. */
+template <class T>
+inline bool operator>(const optional<T>& a, nullopt_t) { return a.has_value(); }
+/** @brief Return true when an optional is not less than the empty tag. */
+template <class T>
+inline bool operator>=(const optional<T>&, nullopt_t) { return true; }
+/** @brief Order the empty tag against an optional. */
+template <class T>
+inline bool operator<(nullopt_t, const optional<T>& a) { return a.has_value(); }
+/** @brief Return true when the empty tag is not greater than an optional. */
+template <class T>
+inline bool operator<=(nullopt_t, const optional<T>&) { return true; }
+/** @brief Return true when the empty tag is greater than an optional. */
+template <class T>
+inline bool operator>(nullopt_t, const optional<T>&) { return false; }
+/** @brief Return true when the empty tag is not less than an optional. */
+template <class T>
+inline bool operator>=(nullopt_t, const optional<T>& a) { return !a.has_value(); }
+
+/** @brief Exchange two optionals through the member swap operation. */
+template <class T>
+inline void swap(optional<T>& lhs, optional<T>& rhs) { lhs.swap(rhs); }
+
+/** @brief Construct an optional containing a copy of `value`. */
+template <class T>
+inline optional<T> make_optional(const T& value) { return optional<T>(value); }
 
 } // namespace sstl
 

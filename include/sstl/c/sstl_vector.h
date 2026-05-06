@@ -32,51 +32,51 @@
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_init(NAME* v); \
+  SSTL_C_INLINE void NAME##_init(NAME* v); \
   /** \
    * @brief Run the generated clear operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_clear(NAME* v); \
+  SSTL_C_INLINE void NAME##_clear(NAME* v); \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* v); \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* v); \
   /** \
    * @brief Run the generated capacity operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* v); \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* v); \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* v); \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* v); \
   /** \
    * @brief Run the generated full operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_full(const NAME* v); \
+  SSTL_C_INLINE bool NAME##_full(const NAME* v); \
   /** \
    * @brief Run the generated push back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_push_back(NAME* v, T x); \
+  SSTL_C_INLINE bool NAME##_push_back(NAME* v, T x); \
   /** \
    * @brief Run the generated try push back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_push_back(NAME* v, T x); \
+  SSTL_C_INLINE bool NAME##_try_push_back(NAME* v, T x); \
   /** \
    * @brief Run the generated resize operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -84,7 +84,7 @@
    * @param fill Value used for newly created slots. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_resize(NAME* v, size_t n, T fill); \
+  SSTL_C_INLINE bool NAME##_resize(NAME* v, size_t n, T fill); \
   /** \
    * @brief Run the generated try resize operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -92,7 +92,23 @@
    * @param fill Value used for newly created slots. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_resize(NAME* v, size_t n, T fill); \
+  SSTL_C_INLINE bool NAME##_try_resize(NAME* v, size_t n, T fill); \
+  /** \
+   * @brief Replace contents with `count` copies of `value`. \
+   * @param v Generated object or variant instance. \
+   * @param count Requested element count. \
+   * @param value Value copied into each live slot. \
+   * @return `true` when the assignment completed; otherwise `false`. \
+   */ \
+  SSTL_C_INLINE bool NAME##_assign(NAME* v, size_t count, T value); \
+  /** \
+   * @brief Try to replace contents without invoking the active error policy. \
+   * @param v Generated object or variant instance. \
+   * @param count Requested element count. \
+   * @param value Value copied into each live slot. \
+   * @return `true` on success; otherwise `false`. \
+   */ \
+  SSTL_C_INLINE bool NAME##_try_assign(NAME* v, size_t count, T value); \
   /** \
    * @brief Run the generated insert operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -100,7 +116,7 @@
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_insert(NAME* v, size_t pos, T x); \
+  SSTL_C_INLINE bool NAME##_insert(NAME* v, size_t pos, T x); \
   /** \
    * @brief Run the generated try insert operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -108,7 +124,7 @@
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_insert(NAME* v, size_t pos, T x); \
+  SSTL_C_INLINE bool NAME##_try_insert(NAME* v, size_t pos, T x); \
   /** \
    * @brief Run the generated erase operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -116,35 +132,71 @@
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_erase(NAME* v, size_t pos, T* out); \
+  SSTL_C_INLINE bool NAME##_erase(NAME* v, size_t pos, T* out); \
   /** \
    * @brief Run the generated pop back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_pop_back(NAME* v, T* out); \
+  SSTL_C_INLINE bool NAME##_pop_back(NAME* v, T* out); \
   /** \
    * @brief Run the generated try pop back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_pop_back(NAME* v, T* out); \
+  SSTL_C_INLINE bool NAME##_try_pop_back(NAME* v, T* out); \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* v, size_t i); \
+  SSTL_C_INLINE T* NAME##_at(NAME* v, size_t i); \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* v, size_t i);
+  SSTL_C_INLINE T* NAME##_try_at(NAME* v, size_t i); \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty under RETURN policy. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the first element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_front(NAME* v); \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the first element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* v); \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty under RETURN policy. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the last element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_back(NAME* v); \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the last element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* v); \
+  /** \
+   * @brief Return a pointer to the inline contiguous storage. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to inline storage. \
+   */ \
+  SSTL_C_INLINE T* NAME##_data(NAME* v); \
+  /** \
+   * @brief Exchange two vectors of the same generated type. \
+   * @param a First vector. \
+   * @param b Second vector. \
+   */ \
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b);
 
 /**
  * @brief Define the functions declared by `SSTL_VECTOR_DECLARE`.
@@ -161,51 +213,51 @@
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_init(NAME* v) { v->size = 0u; } \
+  SSTL_C_INLINE void NAME##_init(NAME* v) { v->size = 0u; } \
   /** \
    * @brief Run the generated clear operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_clear(NAME* v) { v->size = 0u; } \
+  SSTL_C_INLINE void NAME##_clear(NAME* v) { v->size = 0u; } \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* v) { return v->size; } \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* v) { return v->size; } \
   /** \
    * @brief Run the generated capacity operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* v) { (void)v; return (size_t)(CAP); } \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* v) { (void)v; return (size_t)(CAP); } \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* v) { return v->size == 0u; } \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* v) { return v->size == 0u; } \
   /** \
    * @brief Run the generated full operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_full(const NAME* v) { return v->size == (size_t)(CAP); } \
+  SSTL_C_INLINE bool NAME##_full(const NAME* v) { return v->size == (size_t)(CAP); } \
   /** \
    * @brief Run the generated push back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_push_back(NAME* v, T x) { if (v->size == (size_t)(CAP)) { SSTL_C_PANIC("vector full"); return false; } v->data[v->size++] = x; return true; } \
+  SSTL_C_INLINE bool NAME##_push_back(NAME* v, T x) { if (v->size == (size_t)(CAP)) { SSTL_C_PANIC("vector full"); return false; } v->data[v->size++] = x; return true; } \
   /** \
    * @brief Run the generated try push back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_push_back(NAME* v, T x) { if (v->size == (size_t)(CAP)) return false; v->data[v->size++] = x; return true; } \
+  SSTL_C_INLINE bool NAME##_try_push_back(NAME* v, T x) { if (v->size == (size_t)(CAP)) return false; v->data[v->size++] = x; return true; } \
   /** \
    * @brief Run the generated resize operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -213,7 +265,7 @@
    * @param fill Value used for newly created slots. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_resize(NAME* v, size_t n, T fill) { if (n > (size_t)(CAP)) { SSTL_C_PANIC("vector resize"); return false; } while (v->size < n) v->data[v->size++] = fill; v->size = n; return true; } \
+  SSTL_C_INLINE bool NAME##_resize(NAME* v, size_t n, T fill) { if (n > (size_t)(CAP)) { SSTL_C_PANIC("vector resize"); return false; } while (v->size < n) v->data[v->size++] = fill; v->size = n; return true; } \
   /** \
    * @brief Run the generated try resize operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -221,7 +273,23 @@
    * @param fill Value used for newly created slots. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_resize(NAME* v, size_t n, T fill) { if (n > (size_t)(CAP)) return false; while (v->size < n) v->data[v->size++] = fill; v->size = n; return true; } \
+  SSTL_C_INLINE bool NAME##_try_resize(NAME* v, size_t n, T fill) { if (n > (size_t)(CAP)) return false; while (v->size < n) v->data[v->size++] = fill; v->size = n; return true; } \
+  /** \
+   * @brief Replace contents with `count` copies of `value`. \
+   * @param v Generated object or variant instance. \
+   * @param count Requested element count. \
+   * @param value Value copied into each live slot. \
+   * @return `true` when the assignment completed; otherwise `false`. \
+   */ \
+  SSTL_C_INLINE bool NAME##_assign(NAME* v, size_t count, T value) { size_t i; if (count > (size_t)(CAP)) { SSTL_C_PANIC("vector assign"); return false; } for (i = 0u; i != count; ++i) v->data[i] = value; v->size = count; return true; } \
+  /** \
+   * @brief Try to replace contents without invoking the active error policy. \
+   * @param v Generated object or variant instance. \
+   * @param count Requested element count. \
+   * @param value Value copied into each live slot. \
+   * @return `true` on success; otherwise `false`. \
+   */ \
+  SSTL_C_INLINE bool NAME##_try_assign(NAME* v, size_t count, T value) { size_t i; if (count > (size_t)(CAP)) return false; for (i = 0u; i != count; ++i) v->data[i] = value; v->size = count; return true; } \
   /** \
    * @brief Run the generated insert operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -229,7 +297,7 @@
    * @param x Element value supplied by the caller. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_insert(NAME* v, size_t pos, T x) { size_t i; if (pos > v->size || v->size == (size_t)(CAP)) { SSTL_C_PANIC("vector insert"); return false; } for (i = v->size; i != pos; --i) v->data[i] = v->data[i - 1u]; v->data[pos] = x; ++v->size; return true; } \
+  SSTL_C_INLINE bool NAME##_insert(NAME* v, size_t pos, T x) { size_t i; if (pos > v->size || v->size == (size_t)(CAP)) { SSTL_C_PANIC("vector insert"); return false; } for (i = v->size; i != pos; --i) v->data[i] = v->data[i - 1u]; v->data[pos] = x; ++v->size; return true; } \
   /** \
    * @brief Run the generated try insert operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -237,7 +305,7 @@
    * @param x Element value supplied by the caller. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_insert(NAME* v, size_t pos, T x) { size_t i; if (pos > v->size || v->size == (size_t)(CAP)) return false; for (i = v->size; i != pos; --i) v->data[i] = v->data[i - 1u]; v->data[pos] = x; ++v->size; return true; } \
+  SSTL_C_INLINE bool NAME##_try_insert(NAME* v, size_t pos, T x) { size_t i; if (pos > v->size || v->size == (size_t)(CAP)) return false; for (i = v->size; i != pos; --i) v->data[i] = v->data[i - 1u]; v->data[pos] = x; ++v->size; return true; } \
   /** \
    * @brief Run the generated erase operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
@@ -245,35 +313,71 @@
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_erase(NAME* v, size_t pos, T* out) { size_t i; if (pos >= v->size) { SSTL_C_PANIC("vector erase"); return false; } if (out) *out = v->data[pos]; for (i = pos + 1u; i != v->size; ++i) v->data[i - 1u] = v->data[i]; --v->size; return true; } \
+  SSTL_C_INLINE bool NAME##_erase(NAME* v, size_t pos, T* out) { size_t i; if (pos >= v->size) { SSTL_C_PANIC("vector erase"); return false; } if (out) *out = v->data[pos]; for (i = pos + 1u; i != v->size; ++i) v->data[i - 1u] = v->data[i]; --v->size; return true; } \
   /** \
    * @brief Run the generated pop back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_pop_back(NAME* v, T* out) { if (v->size == 0u) { SSTL_C_PANIC("vector empty"); return false; } --v->size; if (out) *out = v->data[v->size]; return true; } \
+  SSTL_C_INLINE bool NAME##_pop_back(NAME* v, T* out) { if (v->size == 0u) { SSTL_C_PANIC("vector empty"); return false; } --v->size; if (out) *out = v->data[v->size]; return true; } \
   /** \
    * @brief Run the generated try pop back operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param out Caller-provided destination for produced values. \
    * @return `true` on success; otherwise `false` without invoking the panic policy. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_try_pop_back(NAME* v, T* out) { if (v->size == 0u) return false; --v->size; if (out) *out = v->data[v->size]; return true; } \
+  SSTL_C_INLINE bool NAME##_try_pop_back(NAME* v, T* out) { if (v->size == 0u) return false; --v->size; if (out) *out = v->data[v->size]; return true; } \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* v, size_t i) { if (i >= v->size) { SSTL_C_PANIC("vector at"); return 0; } return &v->data[i]; } \
+  SSTL_C_INLINE T* NAME##_at(NAME* v, size_t i) { if (i >= v->size) { SSTL_C_PANIC("vector at"); return 0; } return &v->data[i]; } \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param v Generated object or variant instance. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* v, size_t i) { return i < v->size ? &v->data[i] : 0; }
+  SSTL_C_INLINE T* NAME##_try_at(NAME* v, size_t i) { return i < v->size ? &v->data[i] : 0; } \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty under RETURN policy. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the first element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_front(NAME* v) { if (v->size == 0u) { SSTL_C_PANIC("vector front"); return 0; } return &v->data[0]; } \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the first element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* v) { return v->size == 0u ? 0 : &v->data[0]; } \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty under RETURN policy. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the last element, or null on failure. \
+   */ \
+  SSTL_C_INLINE T* NAME##_back(NAME* v) { if (v->size == 0u) { SSTL_C_PANIC("vector back"); return 0; } return &v->data[v->size - 1u]; } \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to the last element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* v) { return v->size == 0u ? 0 : &v->data[v->size - 1u]; } \
+  /** \
+   * @brief Return a pointer to the inline contiguous storage. \
+   * @param v Generated object or variant instance. \
+   * @return Pointer to inline storage. \
+   */ \
+  SSTL_C_INLINE T* NAME##_data(NAME* v) { return v->data; } \
+  /** \
+   * @brief Exchange two vectors of the same generated type. \
+   * @param a First vector. \
+   * @param b Second vector. \
+   */ \
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b) { NAME tmp = *a; *a = *b; *b = tmp; }
 
 #endif
 

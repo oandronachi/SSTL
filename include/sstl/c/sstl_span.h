@@ -26,69 +26,81 @@
    * @param size Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_make(T* data, size_t size); \
+  SSTL_C_INLINE NAME NAME##_make(T* data, size_t size); \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* s); \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* s); \
   /** \
    * @brief Run the generated size bytes operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size_bytes(const NAME* s); \
+  SSTL_C_INLINE size_t NAME##_size_bytes(const NAME* s); \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* s); \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* s); \
   /** \
    * @brief Run the generated data operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_data(NAME* s); \
+  SSTL_C_INLINE T* NAME##_data(NAME* s); \
   /** \
    * @brief Run the generated front operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_front(NAME* s); \
+  SSTL_C_INLINE T* NAME##_front(NAME* s); \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty. \
+   * @param s String or set instance. \
+   * @return Pointer to the first element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* s); \
   /** \
    * @brief Run the generated back operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_back(NAME* s); \
+  SSTL_C_INLINE T* NAME##_back(NAME* s); \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty. \
+   * @param s String or set instance. \
+   * @return Pointer to the last element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* s); \
   /** \
    * @brief Run the generated begin operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_begin(NAME* s); \
+  SSTL_C_INLINE T* NAME##_begin(NAME* s); \
   /** \
    * @brief Run the generated end operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_end(NAME* s); \
+  SSTL_C_INLINE T* NAME##_end(NAME* s); \
   /** \
    * @brief Run the generated first operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param count Requested element or character count. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_first(const NAME* s, size_t count); \
+  SSTL_C_INLINE NAME NAME##_first(const NAME* s, size_t count); \
   /** \
    * @brief Run the generated last operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param count Requested element or character count. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_last(const NAME* s, size_t count); \
+  SSTL_C_INLINE NAME NAME##_last(const NAME* s, size_t count); \
   /** \
    * @brief Run the generated subspan operation for this typed SSTL family. \
    * @param s String or set instance. \
@@ -96,21 +108,21 @@
    * @param count Requested element or character count. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_subspan(const NAME* s, size_t offset, size_t count); \
+  SSTL_C_INLINE NAME NAME##_subspan(const NAME* s, size_t offset, size_t count); \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* s, size_t i); \
+  SSTL_C_INLINE T* NAME##_at(NAME* s, size_t i); \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* s, size_t i);
+  SSTL_C_INLINE T* NAME##_try_at(NAME* s, size_t i);
 
 /** @def SSTL_SPAN_DEFINE
  * @brief Define the typed C SSTL API family generated by `SSTL_SPAN_DEFINE`.
@@ -122,69 +134,81 @@
    * @param size Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_make(T* data, size_t size) { NAME s; s.data = data; s.size = size; return s; } \
+  SSTL_C_INLINE NAME NAME##_make(T* data, size_t size) { NAME s; s.data = data; s.size = size; return s; } \
   /** \
    * @brief Run the generated size operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* s) { return s->size; } \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* s) { return s->size; } \
   /** \
    * @brief Run the generated size bytes operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size_bytes(const NAME* s) { return s->size * sizeof(T); } \
+  SSTL_C_INLINE size_t NAME##_size_bytes(const NAME* s) { return s->size * sizeof(T); } \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* s) { return s->size == 0u; } \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* s) { return s->size == 0u; } \
   /** \
    * @brief Run the generated data operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_data(NAME* s) { return s->data; } \
+  SSTL_C_INLINE T* NAME##_data(NAME* s) { return s->data; } \
   /** \
    * @brief Run the generated front operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_front(NAME* s) { if (s->size == 0u || s->data == 0) { SSTL_C_PANIC("span front"); return 0; } return s->data; } \
+  SSTL_C_INLINE T* NAME##_front(NAME* s) { if (s->size == 0u || s->data == 0) { SSTL_C_PANIC("span front"); return 0; } return s->data; } \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty. \
+   * @param s String or set instance. \
+   * @return Pointer to the first element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* s) { return (s->size == 0u || s->data == 0) ? 0 : s->data; } \
   /** \
    * @brief Run the generated back operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_back(NAME* s) { if (s->size == 0u || s->data == 0) { SSTL_C_PANIC("span back"); return 0; } return s->data + s->size - 1u; } \
+  SSTL_C_INLINE T* NAME##_back(NAME* s) { if (s->size == 0u || s->data == 0) { SSTL_C_PANIC("span back"); return 0; } return s->data + s->size - 1u; } \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty. \
+   * @param s String or set instance. \
+   * @return Pointer to the last element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* s) { return (s->size == 0u || s->data == 0) ? 0 : s->data + s->size - 1u; } \
   /** \
    * @brief Run the generated begin operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_begin(NAME* s) { return s->data; } \
+  SSTL_C_INLINE T* NAME##_begin(NAME* s) { return s->data; } \
   /** \
    * @brief Run the generated end operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_end(NAME* s) { return s->data == 0 ? 0 : s->data + s->size; } \
+  SSTL_C_INLINE T* NAME##_end(NAME* s) { return s->data == 0 ? 0 : s->data + s->size; } \
   /** \
    * @brief Run the generated first operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param count Requested element or character count. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_first(const NAME* s, size_t count) { NAME out; if (count > s->size) { SSTL_C_PANIC("span first"); count = s->size; } out.data = s->data; out.size = count; return out; } \
+  SSTL_C_INLINE NAME NAME##_first(const NAME* s, size_t count) { NAME out; if (count > s->size) { SSTL_C_PANIC("span first"); count = s->size; } out.data = s->data; out.size = count; return out; } \
   /** \
    * @brief Run the generated last operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param count Requested element or character count. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_last(const NAME* s, size_t count) { NAME out; if (count > s->size) { SSTL_C_PANIC("span last"); count = s->size; } out.data = s->data == 0 ? 0 : s->data + (s->size - count); out.size = count; return out; } \
+  SSTL_C_INLINE NAME NAME##_last(const NAME* s, size_t count) { NAME out; if (count > s->size) { SSTL_C_PANIC("span last"); count = s->size; } out.data = s->data == 0 ? 0 : s->data + (s->size - count); out.size = count; return out; } \
   /** \
    * @brief Run the generated subspan operation for this typed SSTL family. \
    * @param s String or set instance. \
@@ -192,21 +216,21 @@
    * @param count Requested element or character count. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED NAME NAME##_subspan(const NAME* s, size_t offset, size_t count) { NAME out; if (offset > s->size) { SSTL_C_PANIC("span subspan"); offset = s->size; } if (count > s->size - offset) count = s->size - offset; out.data = s->data == 0 ? 0 : s->data + offset; out.size = count; return out; } \
+  SSTL_C_INLINE NAME NAME##_subspan(const NAME* s, size_t offset, size_t count) { NAME out; if (offset > s->size) { SSTL_C_PANIC("span subspan"); offset = s->size; } if (count > s->size - offset) count = s->size - offset; out.data = s->data == 0 ? 0 : s->data + offset; out.size = count; return out; } \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* s, size_t i) { if (i >= s->size) { SSTL_C_PANIC("span at"); return 0; } return &s->data[i]; } \
+  SSTL_C_INLINE T* NAME##_at(NAME* s, size_t i) { if (i >= s->size) { SSTL_C_PANIC("span at"); return 0; } return &s->data[i]; } \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param s String or set instance. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* s, size_t i) { return i < s->size ? &s->data[i] : 0; }
+  SSTL_C_INLINE T* NAME##_try_at(NAME* s, size_t i) { return i < s->size ? &s->data[i] : 0; }
 
 #endif
 

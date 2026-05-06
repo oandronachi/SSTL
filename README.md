@@ -1,6 +1,26 @@
-# Static‑Allocation STL‑Like Library (SSTL)
+# Static-Allocation STL-Like Library (SSTL)
 
-SSTL is a lightweight alternative to the C++ Standard Template Library for **C99** and **C++03** environments.  It provides a family of familiar containers, algorithms and utilities that operate entirely on **statically allocated memory**—no calls to `malloc`, `free`, `new` or `delete` are made at runtime.  This makes SSTL suitable for bare‑metal microcontrollers, safety‑critical systems and any environment where heap allocation is undesirable or unavailable.
+SSTL is a lightweight alternative to the C++ Standard Template Library for C99 and C++03 environments. It provides a family of familiar containers, algorithms, and utilities that operate entirely on statically allocated memory — no calls to `malloc`, `free`, `new`, or `delete` are made at runtime. This makes SSTL suitable for bare-metal microcontrollers, safety-critical systems, and any environment where heap allocation is undesirable or unavailable.
+
+SSTL was developed as an AI-assisted, human-in-the-loop engineering experiment. The project explores how generative AI can be used to accelerate the design and implementation of constrained C/C++ infrastructure while keeping a human responsible for the concept, constraints, architectural direction, review, and validation.
+
+## Human contribution / Author’s role
+
+This project should not be understood as a traditional solo, line-by-line manual implementation. It was created through an AI-assisted development process in which my role was to define the problem space, steer the engineering direction, review generated outputs, and keep the project aligned with its intended constraints.
+
+My contribution included:
+
+- defining the overall concept of a static-allocation STL-like library for constrained C and C++ environments;
+- setting the core constraints: no runtime dynamic allocation, C99/C++03 compatibility, embedded-friendly design, predictable capacity handling, and portability across toolchains;
+- guiding the AI-generated design and implementation work through iterative prompting, review, and correction;
+- identifying when generated solutions diverged from the intended architecture, memory model, API style, or embedded-systems assumptions;
+- providing feedback to redirect the implementation toward deterministic memory use, explicit capacity handling, and C/C++ API parity;
+- reviewing the generated artifacts for consistency with the project goals and expected usage model;
+- using tests, specifications, and iterative feedback as guardrails to validate and refine the result.
+
+The AI systems assisted with generating design material, implementation code, documentation, and test-related artifacts. The human role was to orchestrate this process: define what the project should be, evaluate whether the generated work matched that intent, detect incorrect or unsuitable directions, and steer the project back toward the desired architecture.
+
+SSTL is therefore best viewed as an AI-assisted engineering and validation experiment. It demonstrates concept ownership, architectural steering, requirements clarification, technical review, embedded-systems judgment, and the disciplined use of generative AI for constrained C/C++ software development.
 
 ## Overview
 
@@ -137,13 +157,13 @@ The workspace is organised as follows:
 
 ### Helper Scripts
 
-Run helpers from the workspace root with `python tools/<script>.py …`, or double‑click them in a file explorer to open the GUI.  The auto‑detection logic attempts to find usable backends (Docker, Podman, WSL or local toolchains) and prompts for consent before performing any installation or environment setup.
+Run helpers from the workspace root with `python tools/<script>.py …`, or double‑click them in a file explorer to open the GUI.  The GUIs share common window sizing, button-state and double-click launch behavior, so they keep their controls visible and disable actions that cannot run with the currently available backend.  The auto‑detection logic attempts to find usable backends (Docker, Podman, WSL or local tools) and prompts for consent before performing any installation or environment setup.  In the test runner GUI, validation buttons and coverage buttons are separate aligned rows; coverage can run through auto fallback or a strict Docker, Podman, WSL or local backend selection.
 
-- **`tools/sstl_run_tests.py`** — Compiles and runs the real C/C++ test suite.  It can use Docker, Podman, WSL or a local CMake/CTest toolchain.  The auto backend discovers available tools; installation flows ask before running installer commands.  Runtime CSV and coverage artefacts are copied into `artifacts/`.
-- **`tools/sstl_run_doxygen.py`** — Generates Doxygen documentation from the embedded comments.  It tries the local Doxygen installation first and can optionally fall back to Docker, Podman or WSL when needed.  Output goes to `artifacts/doxygen/`.
+- **`tools/sstl_run_tests.py`** — Compiles and runs the real C/C++ test suite.  It can use Docker, Podman, WSL or a local CMake/CTest toolchain.  The local validation backend is enabled only after a tiny host C/C++ CMake configure/build probe passes; local coverage additionally requires `lcov` and a GNU/Clang-style coverage probe.  The auto backend discovers available tools; installation flows ask before running installer commands, and the separate preparation flow can try to start or bootstrap installed backends.  Runtime CSV and coverage artefacts are copied into `artifacts/`.  Optional vendor compiler lanes can run host-installed tools or configured container images for ArmClang, GNU Arm Embedded, Keil/ArmCC and IAR/ICCARM probes.
+- **`tools/sstl_run_doxygen.py`** — Generates Doxygen documentation from the embedded comments.  It purges the previous runner-owned Doxygen artifacts before each generation, then writes a fresh deterministic `artifacts/doxygen/Doxyfile` and HTML output under `artifacts/doxygen/html/`.  It tries the local Doxygen installation first and can optionally fall back to Docker, Podman or WSL when needed.  Backend-specific GUI buttons are disabled until that backend is reachable; `--install-missing` prints setup options and `--prepare-backends` can start Docker Desktop, start/init Podman or install Doxygen/Graphviz inside WSL after confirmation.
 - **`tools/sstl_build_bundles.py`** — Generates and verifies all SSTL YAML bundles.  The produced bundles are saved in `artifacts/`.
 - **`tools/sstl_get_code_stats.py`** — Reports line and character statistics, with and without comments and whitespace.  It writes `artifacts/sstl-code-stats.csv` and `artifacts/sstl-code-stats.json` by default.
-- **`tools/sstl_clean_generated.py`** — Scans for generated `__pycache__`, `.pytest_cache`, `build/` and generated Doxygen documentation folders.  You can supply `--yes` to delete without prompting; the GUI will also ask before removing anything.
+- **`tools/sstl_clean_generated.py`** — Scans for generated `__pycache__`, `.pytest_cache`, `build/`, generated Doxygen documentation folders, and optionally the full `artifacts/` contents.  The default `all` group keeps the historical cache/build/Doxygen cleanup; use `--groups artifacts` to purge every immediate child under `artifacts/` while keeping the folder itself, or `--groups artifacts build` for artifacts plus build output.  You can supply `--yes` to delete without prompting; the GUI will also ask before removing anything.
 
 ### Common Commands
 
@@ -156,8 +176,41 @@ python tools/sstl_run_tests.py --backend auto --runtime-report --quick-summary
 # Run coverage‑only build via Docker
 python tools/sstl_run_tests.py --backend docker --coverage-only
 
+# Ask before installing missing runner backends/tooling
+python tools/sstl_run_tests.py --backend auto --install-missing
+
+# Non-interactive runner backend/tooling install flow
+python tools/sstl_run_tests.py --backend auto --install-missing --yes-install
+
+# Try to make installed but unavailable backends ready
+python tools/sstl_run_tests.py --backend auto --prepare-backends
+python tools/sstl_run_tests.py --backend podman --prepare-backends --yes-prepare
+python tools/sstl_run_tests.py --backend wsl --prepare-backends --wsl-distro Ubuntu --yes-prepare
+
+# Force a specific WSL distro instead of the machine default
+python tools/sstl_run_tests.py --backend wsl --wsl-distro Ubuntu
+
+# Run vendor compiler container probes with the backend's container engine
+python tools/sstl_run_tests.py --backend docker --vendor-container-images
+python tools/sstl_run_tests.py --backend podman --vendor-container-images
+
+# Run the predefined public GNU Arm Embedded image nominees
+python tools/sstl_run_tests.py --list-vendor-container-nominees
+python tools/sstl_run_tests.py --vendor-container-nominees
+python tools/sstl_run_tests.py --vendor-container-nominee wischner-arm-none-eabi-1_1_0
+
+# Provide an explicit vendor compiler image
+python tools/sstl_run_tests.py --vendor-container-images --vendor-container-image arm-none-eabi=my/arm-gcc:latest
+python tools/sstl_run_tests.py --vendor-container-images --vendor-container-image arm-none-eabi@my_gcc=my/arm-gcc:latest
+
+# Override the engine and skip image-backed lanes whose images are absent
+python tools/sstl_run_tests.py --backend local --vendor-container-images --vendor-container-engine podman --vendor-container-pull never
+
 # Generate Doxygen documentation
 python tools/sstl_run_doxygen.py --backend auto
+python tools/sstl_run_doxygen.py --backend auto --install-missing
+python tools/sstl_run_doxygen.py --backend auto --prepare-backends
+python tools/sstl_run_doxygen.py --backend wsl --wsl-distro Ubuntu --prepare-backends --yes-prepare
 
 # Build and verify YAML bundles
 python tools/sstl_build_bundles.py --verify
@@ -173,17 +226,39 @@ python tools/sstl_clean_generated.py --groups cache build --dry-run
 
 # Clean documentation artefacts (dry run)
 python tools/sstl_clean_generated.py --groups documentation --dry-run
+
+# Purge all generated artefacts, leaving the artifacts/ folder itself
+python tools/sstl_clean_generated.py --groups artifacts --dry-run
+
+# Purge all generated artefacts and build folders
+python tools/sstl_clean_generated.py --groups artifacts build --dry-run
 ```
+
+Vendor container image keys are `armclang`, `arm-none-eabi`, `keil-armcc` and `iar-iccarm`.  You can pass images with repeated `--vendor-container-image KEY=IMAGE` or `--vendor-container-image KEY@LABEL=IMAGE` arguments, or by setting `SSTL_VENDOR_CONTAINER_ARMCLANG_IMAGE`, `SSTL_VENDOR_CONTAINER_ARM_NONE_EABI_IMAGE`, `SSTL_VENDOR_CONTAINER_KEIL_ARMCC_IMAGE` and `SSTL_VENDOR_CONTAINER_IAR_ICCARM_IMAGE`.  `KEY@LABEL=IMAGE` is useful when validating multiple images for the same compiler key because each label gets its own lane names.
+
+The predefined public `arm-none-eabi` nominees are available through `--vendor-container-nominees`, `--vendor-container-nominee NAME`, and `--list-vendor-container-nominees`: `wischner-arm-none-eabi-1_1_0`, `jafee-arm-none-eabi-15_2_rel1`, `jafee-arm-none-eabi-14_3_rel1`, and `gonzarub-arm-none-eabi-13_3`.
+
+Missing vendor images are controlled by `--vendor-container-pull ask|never|always`.  The default is `ask`: the runner asks before pulling a configured missing image.  If the user denies the pull, approval is unavailable, or the pull fails because of network/registry issues, the dependent vendor image lanes are skipped and `testing/manifests/vendor_compiler_summary.yaml` records the reason.  `--install-missing` is separate; it only covers runner backends/tooling such as Docker, Podman, WSL, CMake and Ninja.
+
+Backend preparation is also separate from installation and vendor image pulls.  Use `--prepare-backends` when Docker, Podman or WSL is installed but not currently usable.  It can start Docker Desktop and wait for `docker info`, initialize/start a Podman machine and wait for `podman info`, or run the WSL package setup command inside an Ubuntu/Debian-like distro.  The WSL preparation command installs both validation tools and the `lcov` coverage tool.  Use `--yes-prepare` only when those preparation actions are allowed non-interactively.  Host application installers still require `--install-missing` and, for non-interactive execution, `--yes-install`.
+
+On Windows, WSL defaults vary by machine.  Docker Desktop, Podman and Rancher may register internal WSL distros that have `/bin/sh` but are not suitable for SSTL validation.  The runner only selects a non-internal validation distro that already has `cmake`, `ninja`, `gcc`, `g++`, `clang` and `clang++`; WSL coverage additionally requires `lcov`.  WSL coverage reports line/branch thresholds, but because branch counters vary noticeably across host distro compiler versions, the canonical threshold gate remains the Docker/local coverage lane.  Use `--wsl-distro NAME` or `SSTL_WSL_DISTRO=NAME` to force a known Ubuntu/Debian distro.  If the tools are missing, install them inside WSL with `sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc g++ clang libclang-rt-dev util-linux python3 lcov`.
+
+Docker and Podman discovery checks both the executable and the live engine connection.  Auto fallback skips a container backend when the daemon, Desktop app, VM or socket is not reachable.  For Podman on Windows, start Podman Desktop or run `podman machine init` followed by `podman machine start`, then verify with `podman info`.
+
+Local backend discovery does more than check for `cmake` and `ctest` on `PATH`.  The runner checks that `testing/build/` can create and remove probe files, then configures and builds a tiny C99/C++98 CMake project in a disposable OS temp directory.  Local Coverage additionally requires `lcov` and verifies that the local compiler accepts GNU/Clang `--coverage` instrumentation flags.  This means Visual Studio can make Local validation available, while Local Coverage normally needs a GCC/Clang-style toolchain.
+
+The runner avoids baking the local checkout name into generated commands.  Local, WSL and vendor-lane invocations pass repository-relative paths where the called tools support them, and WSL resolves the current checkout from its inherited working directory.  Docker and Podman still receive a runtime-derived host bind path for `.:/work` because container engines require a concrete host mount source, but the displayed command and generated vendor-lane summaries render that mount relative to the checkout.
 
 ## Doxygen Documentation
 
-Every public header in SSTL contains Doxygen‑style comments.  To generate HTML documentation, install [Doxygen](https://www.doxygen.nl/) and run:
+Every public header in SSTL contains Doxygen‑style comments.  To generate HTML documentation through the repository runner, run:
 
 ```sh
-doxygen Doxyfile
+python tools/sstl_run_doxygen.py --backend auto
 ```
 
-If you do not have a `Doxyfile`, you can create a minimal one by running `doxygen -g` and editing the `INPUT` and `FILE_PATTERNS` fields to point at `include/sstl/` and `include/sstl/c/`.  Some users prefer to automate this step; you can invoke Doxygen from the provided `tools/sstl_run_doxygen.py` script, which will locate or install Doxygen and place the output in `artifacts/doxygen/`.
+The runner writes a deterministic `artifacts/doxygen/Doxyfile`, purges the prior runner-owned outputs (`artifacts/doxygen/html`, `Doxyfile`, warning log and summary), then generates fresh HTML into `artifacts/doxygen/html/`.  It can use local Doxygen, Docker, Podman or a non-internal WSL distro.  Use `--install-missing` for setup recommendations and `--prepare-backends` when Docker/Podman/WSL is installed but not currently reachable or missing Doxygen tools.
 
 ## Contributing
 

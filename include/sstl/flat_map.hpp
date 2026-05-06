@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file flat_map.hpp
  * @brief Fixed-capacity sorted-vector associative container.
  *
@@ -21,10 +21,30 @@ namespace sstl {
 template <class K, class V, size_t N, class Compare = less<K> >
 class flat_map {
 public:
+  /** @brief Key type stored by the flat map. */
+  typedef K key_type;
+  /** @brief Mapped value type stored by the flat map. */
+  typedef V mapped_type;
+  /** @brief Key comparison predicate type. */
+  typedef Compare key_compare;
   /** @brief Key/value pair type stored in sorted contiguous order. */
   typedef pair<K, V> value_type;
   /** @brief Unsigned size and index type used by the flat map. */
   typedef size_t size_type;
+
+  /** @brief Value comparison predicate that orders pairs by key. */
+  class value_compare {
+  public:
+    /** @brief Compare two values by their keys. */
+    bool operator()(const value_type& a, const value_type& b) const { return comp_(a.first, b.first); }
+  private:
+    /** @brief Allow flat_map to construct value_compare. */
+    friend class flat_map;
+    /** @brief Construct a value comparator from the key comparator. */
+    explicit value_compare(key_compare comp) : comp_(comp) {}
+    /** @brief Stored key comparator. */
+    key_compare comp_;
+  };
 
   class const_iterator;
 
@@ -38,9 +58,9 @@ public:
     /** @brief Mutable pointer type exposed by this iterator. */
     typedef value_type* pointer;
     /** @brief Signed difference type used by generic iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
-    typedef forward_iterator_tag iterator_category;
+    typedef random_access_iterator_tag iterator_category;
 
     /** @brief Construct a null iterator. */
     iterator() : owner_(0), index_(0u), generation_(0u) {}
@@ -64,6 +84,22 @@ public:
      * @return Result described by the function brief.
      */
     iterator operator++(int) { iterator old(*this); ++*this; return old; }
+    /** @brief Move to the previous entry. */
+    iterator& operator--() { --index_; return *this; }
+    /** @brief Post-decrement and return the previous iterator value. */
+    iterator operator--(int) { iterator old(*this); --*this; return old; }
+    /** @brief Advance by `n` entries. */
+    iterator& operator+=(difference_type n) { index_ = static_cast<size_type>(static_cast<difference_type>(index_) + n); return *this; }
+    /** @brief Retreat by `n` entries. */
+    iterator& operator-=(difference_type n) { return *this += -n; }
+    /** @brief Return an iterator advanced by `n` entries. */
+    iterator operator+(difference_type n) const { iterator out(*this); out += n; return out; }
+    /** @brief Return an iterator retreated by `n` entries. */
+    iterator operator-(difference_type n) const { iterator out(*this); out -= n; return out; }
+    /** @brief Return the logical distance from `other`. */
+    difference_type operator-(const iterator& other) const { return static_cast<difference_type>(index_) - static_cast<difference_type>(other.index_); }
+    /** @brief Access an entry relative to this iterator. */
+    value_type& operator[](difference_type n) const { return *(*this + n); }
     /**
      * @brief Compare owner and logical index for equality.
      * @param other Other object participating in the operation.
@@ -76,9 +112,19 @@ public:
      * @return `true` when the documented condition holds; otherwise `false`.
      */
     bool operator!=(const iterator& other) const { return !(*this == other); }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator<(const iterator& other) const { return owner_ == other.owner_ && index_ < other.index_; }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator<=(const iterator& other) const { return *this == other || *this < other; }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator>(const iterator& other) const { return other < *this; }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator>=(const iterator& other) const { return other <= *this; }
 
   private:
+    /** @brief Allow the owning flat_map to construct and inspect mutable iterators. */
     friend class flat_map;
+    /** @brief Allow const iterators to copy mutable iterator internals. */
     friend class const_iterator;
     /**
      * @brief Construct an iterator at an index and validity generation.
@@ -106,9 +152,9 @@ public:
     /** @brief Const pointer type exposed by this iterator. */
     typedef const value_type* pointer;
     /** @brief Signed difference type used by generic iterator traits. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
-    typedef forward_iterator_tag iterator_category;
+    typedef random_access_iterator_tag iterator_category;
 
     /** @brief Construct a null const iterator. */
     const_iterator() : owner_(0), index_(0u), generation_(0u) {}
@@ -137,6 +183,22 @@ public:
      * @return Result described by the function brief.
      */
     const_iterator operator++(int) { const_iterator old(*this); ++*this; return old; }
+    /** @brief Move to the previous entry. */
+    const_iterator& operator--() { --index_; return *this; }
+    /** @brief Post-decrement and return the previous iterator value. */
+    const_iterator operator--(int) { const_iterator old(*this); --*this; return old; }
+    /** @brief Advance by `n` entries. */
+    const_iterator& operator+=(difference_type n) { index_ = static_cast<size_type>(static_cast<difference_type>(index_) + n); return *this; }
+    /** @brief Retreat by `n` entries. */
+    const_iterator& operator-=(difference_type n) { return *this += -n; }
+    /** @brief Return an iterator advanced by `n` entries. */
+    const_iterator operator+(difference_type n) const { const_iterator out(*this); out += n; return out; }
+    /** @brief Return an iterator retreated by `n` entries. */
+    const_iterator operator-(difference_type n) const { const_iterator out(*this); out -= n; return out; }
+    /** @brief Return the logical distance from `other`. */
+    difference_type operator-(const const_iterator& other) const { return static_cast<difference_type>(index_) - static_cast<difference_type>(other.index_); }
+    /** @brief Access an entry relative to this iterator. */
+    const value_type& operator[](difference_type n) const { return *(*this + n); }
     /**
      * @brief Compare owner and logical index for equality.
      * @param other Other object participating in the operation.
@@ -149,8 +211,17 @@ public:
      * @return `true` when the documented condition holds; otherwise `false`.
      */
     bool operator!=(const const_iterator& other) const { return !(*this == other); }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator<(const const_iterator& other) const { return owner_ == other.owner_ && index_ < other.index_; }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator<=(const const_iterator& other) const { return *this == other || *this < other; }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator>(const const_iterator& other) const { return other < *this; }
+    /** @brief Compare logical positions within the same flat map. */
+    bool operator>=(const const_iterator& other) const { return other <= *this; }
 
   private:
+    /** @brief Allow the owning flat_map to construct and inspect const iterators. */
     friend class flat_map;
     /**
      * @brief Construct a const iterator at an index and validity generation.
@@ -167,6 +238,11 @@ public:
     /** @brief Mutation generation captured when the iterator was produced. */
     unsigned generation_;
   };
+
+  /** @brief Mutable reverse iterator over sorted flat-map entries. */
+  typedef reverse_iterator_adaptor<iterator> reverse_iterator;
+  /** @brief Const reverse iterator over sorted flat-map entries. */
+  typedef reverse_iterator_adaptor<const_iterator> const_reverse_iterator;
 
   /** @brief Construct an empty map in iterator generation zero. */
   flat_map() : generation_(0u) {}
@@ -186,11 +262,27 @@ public:
    * @return A const iterator to the first sorted pair.
    */
   const_iterator begin() const { return const_iterator(this, 0u, generation_); }
+  /** @brief Return a const iterator to the first sorted pair. */
+  const_iterator cbegin() const { return begin(); }
   /**
    * @brief Return a const iterator one past the last sorted pair.
    * @return A const iterator one past the last sorted pair.
    */
   const_iterator end() const { return const_iterator(this, data_.size(), generation_); }
+  /** @brief Return a const iterator one past the last sorted pair. */
+  const_iterator cend() const { return end(); }
+  /** @brief Return a mutable reverse iterator to the final sorted pair. */
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+  /** @brief Return a const reverse iterator to the final sorted pair. */
+  const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+  /** @brief Return a const reverse iterator to the final sorted pair. */
+  const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
+  /** @brief Return a mutable reverse iterator one before the first sorted pair. */
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+  /** @brief Return a const reverse iterator one before the first sorted pair. */
+  const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+  /** @brief Return a const reverse iterator one before the first sorted pair. */
+  const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
   /**
    * @brief Return the number of stored key/value pairs.
    * @return The number of stored key/value pairs.
@@ -216,6 +308,13 @@ public:
    * @return `true` when the documented condition holds; otherwise `false`.
    */
   bool full() const { return data_.full(); }
+
+  /** @brief Return the key comparison predicate. */
+  key_compare key_comp() const { return comp_; }
+  /** @brief Return the value comparison predicate. */
+  value_compare value_comp() const { return value_compare(comp_); }
+  /** @brief Return one when `key` is present and zero otherwise. */
+  size_type count(const K& key) const { return find(key) == end() ? 0u : 1u; }
 
   /**
    * @brief Find a mutable pair by key, or return `end()` when absent.
@@ -300,6 +399,18 @@ public:
     return make_pair(iterator(this, pos, generation_), true);
   }
 
+  /** @brief Insert a value using `hint` as a non-binding placement hint. */
+  iterator insert(iterator hint, const value_type& value) {
+    (void)hint;
+    return insert(value).first;
+  }
+
+  /** @brief Insert every value in the half-open input range. */
+  template <class InputIt>
+  void insert(InputIt first, InputIt last) {
+    for (; first != last; ++first) (void)insert(*first);
+  }
+
   /**
    * @brief Erase one element by key and return the number of removed entries.
    * @param key Lookup or insertion key.
@@ -310,6 +421,48 @@ public:
     if (it == end()) return 0u;
     erase(it);
     return 1u;
+  }
+
+  /**
+   * @brief Return the mapped value for an existing key without inserting.
+   * @param key Lookup key.
+   * @return Reference to the mapped value.
+  */
+  V& at(const K& key) {
+    V* value = try_at(key);
+    if (!value) return fail_reference<V>("flat_map::at"); // LCOV_EXCL_BR_LINE
+    return *value;
+  }
+
+  /**
+   * @brief Return the const mapped value for an existing key without inserting.
+   * @param key Lookup key.
+   * @return Const reference to the mapped value.
+  */
+  const V& at(const K& key) const {
+    const V* value = try_at(key);
+    if (!value) return fail_reference<const V>("flat_map::at"); // LCOV_EXCL_BR_LINE
+    return *value;
+  }
+
+  /**
+   * @brief Return the mapped value for an existing key, or null when absent.
+   * @param key Lookup key.
+   * @return Pointer to the mapped value, or null when `key` is absent.
+   */
+  V* try_at(const K& key) {
+    iterator it = find(key);
+    return it == end() ? 0 : &it->second;
+  }
+
+  /**
+   * @brief Return the const mapped value for an existing key, or null when absent.
+   * @param key Lookup key.
+   * @return Const pointer to the mapped value, or null when `key` is absent.
+   */
+  const V* try_at(const K& key) const {
+    const_iterator it = find(key);
+    return it == end() ? 0 : &it->second;
   }
 
   /**
@@ -328,6 +481,26 @@ public:
     return iterator(this, index, generation_);
   }
 
+  /** @brief Erase the half-open iterator range `[first,last)`. */
+  iterator erase(iterator first, iterator last) {
+    if (!is_valid_iterator(first) || !is_valid_iterator(last) || first.index_ > last.index_) {
+      handle_error("flat_map::erase range");
+      return end();
+    }
+    const size_type index = first.index_;
+    while (first != last) {
+      first = erase(first);
+      last = iterator(this, last.index_ - 1u, generation_);
+    }
+    return iterator(this, index, generation_);
+  }
+
+  /** @brief Destroy all stored entries. */
+  void clear() {
+    data_.clear();
+    ++generation_;
+  }
+
   /**
    * @brief Return the mapped value for `key`, inserting a default value when absent.
    * @param key Lookup or insertion key.
@@ -337,9 +510,8 @@ public:
     iterator it = find(key);
     if (it != end()) return it->second;
     pair<iterator, bool> inserted = insert(make_pair(key, V()));
-    if (inserted.second) return inserted.first->second;
-    handle_error("flat_map::operator[] full");
-    return overflow_value();
+    if (inserted.second) return inserted.first->second; // LCOV_EXCL_BR_LINE
+    return fail_reference<V>("flat_map::operator[] full"); // LCOV_EXCL_LINE
   }
 
   /**
@@ -388,15 +560,6 @@ private:
   Compare comp_;
   /** @brief Mutation generation captured by iterators for validity checks. */
   unsigned generation_;
-
-  /**
-   * @brief Return a stable fallback value for failed `operator[]` insertions.
-   * @return A stable fallback value for failed `operator[]` insertions.
-   */
-  static V& overflow_value() {
-    static V value = V();
-    return value;
-  }
 
   /**
    * @brief Test whether a lower-bound candidate is equivalent to the queried key.
@@ -450,6 +613,46 @@ template <class K, class V, size_t N, class Compare>
 inline void swap(flat_map<K, V, N, Compare>& lhs, flat_map<K, V, N, Compare>& rhs) {
   lhs.swap(rhs);
 }
+
+/** @brief Compare two flat maps for element-wise equality across capacities. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator==(const flat_map<K, V, N, Compare>& lhs, const flat_map<K, V, M, Compare>& rhs) {
+  if (lhs.size() != rhs.size()) return false;
+  typename flat_map<K, V, N, Compare>::const_iterator a = lhs.begin();
+  typename flat_map<K, V, M, Compare>::const_iterator b = rhs.begin();
+  for (; a != lhs.end(); ++a, ++b) {
+    if (!(*a == *b)) return false;
+  }
+  return true;
+}
+
+/** @brief Compare two flat maps for inequality. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator!=(const flat_map<K, V, N, Compare>& lhs, const flat_map<K, V, M, Compare>& rhs) { return !(lhs == rhs); }
+
+/** @brief Lexicographically compare two flat maps. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator<(const flat_map<K, V, N, Compare>& lhs, const flat_map<K, V, M, Compare>& rhs) {
+  typename flat_map<K, V, N, Compare>::const_iterator a = lhs.begin();
+  typename flat_map<K, V, M, Compare>::const_iterator b = rhs.begin();
+  for (; a != lhs.end() && b != rhs.end(); ++a, ++b) {
+    if (*a < *b) return true;
+    if (*b < *a) return false;
+  }
+  return a == lhs.end() && b != rhs.end();
+}
+
+/** @brief Return true when `lhs` is not lexicographically greater than `rhs`. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator<=(const flat_map<K, V, N, Compare>& lhs, const flat_map<K, V, M, Compare>& rhs) { return !(rhs < lhs); }
+
+/** @brief Return true when `lhs` is lexicographically greater than `rhs`. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator>(const flat_map<K, V, N, Compare>& lhs, const flat_map<K, V, M, Compare>& rhs) { return rhs < lhs; }
+
+/** @brief Return true when `lhs` is not lexicographically less than `rhs`. */
+template <class K, class V, size_t N, size_t M, class Compare>
+inline bool operator>=(const flat_map<K, V, N, Compare>& lhs, const flat_map<K, V, M, Compare>& rhs) { return !(lhs < rhs); }
 
 } // namespace sstl
 

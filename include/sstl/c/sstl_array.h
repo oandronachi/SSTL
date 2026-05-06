@@ -28,51 +28,63 @@
    * @param a First operand or first range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* a); \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* a); \
   /** \
    * @brief Run the generated capacity operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* a); \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* a); \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* a); \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* a); \
   /** \
    * @brief Run the generated data operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_data(NAME* a); \
+  SSTL_C_INLINE T* NAME##_data(NAME* a); \
   /** \
    * @brief Run the generated front operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_front(NAME* a); \
+  SSTL_C_INLINE T* NAME##_front(NAME* a); \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty. \
+   * @param a First operand or first range start. \
+   * @return Pointer to the first element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* a); \
   /** \
    * @brief Run the generated back operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_back(NAME* a); \
+  SSTL_C_INLINE T* NAME##_back(NAME* a); \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty. \
+   * @param a First operand or first range start. \
+   * @return Pointer to the last element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* a); \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* a, size_t i); \
+  SSTL_C_INLINE T* NAME##_at(NAME* a, size_t i); \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* a, size_t i); \
+  SSTL_C_INLINE T* NAME##_try_at(NAME* a, size_t i); \
   /** \
    * @brief Run the generated cmp operation for this typed SSTL family. \
    * @param a First operand or first range start. \
@@ -80,21 +92,21 @@
    * @param cmp Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED int NAME##_cmp(const NAME* a, const NAME* b, sstl_cmp_fn cmp); \
+  SSTL_C_INLINE int NAME##_cmp(const NAME* a, const NAME* b, sstl_cmp_fn cmp); \
   /** \
    * @brief Run the generated fill operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param value Value supplied for comparison, assignment, insertion, or lookup. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_fill(NAME* a, T value); \
+  SSTL_C_INLINE void NAME##_fill(NAME* a, T value); \
   /** \
    * @brief Run the generated swap operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_swap(NAME* a, NAME* b);
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b);
 
 /**
  * @brief Define the functions declared by `SSTL_ARRAY_DECLARE`.
@@ -105,51 +117,63 @@
    * @param a First operand or first range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_size(const NAME* a) { (void)a; return (size_t)(CAP); } \
+  SSTL_C_INLINE size_t NAME##_size(const NAME* a) { (void)a; return (size_t)(CAP); } \
   /** \
    * @brief Run the generated capacity operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED size_t NAME##_capacity(const NAME* a) { (void)a; return (size_t)(CAP); } \
+  SSTL_C_INLINE size_t NAME##_capacity(const NAME* a) { (void)a; return (size_t)(CAP); } \
   /** \
    * @brief Run the generated empty operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return `true` when the documented condition holds; otherwise `false`. \
    */ \
-  static SSTL_C_UNUSED bool NAME##_empty(const NAME* a) { (void)a; return (size_t)(CAP) == 0u; } \
+  SSTL_C_INLINE bool NAME##_empty(const NAME* a) { (void)a; return (size_t)(CAP) == 0u; } \
   /** \
    * @brief Run the generated data operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_data(NAME* a) { return a->data; } \
+  SSTL_C_INLINE T* NAME##_data(NAME* a) { return a->data; } \
   /** \
    * @brief Run the generated front operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_front(NAME* a) { if ((size_t)(CAP) == 0u) { SSTL_C_PANIC("array front"); return 0; } return &a->data[0]; } \
+  SSTL_C_INLINE T* NAME##_front(NAME* a) { if ((size_t)(CAP) == 0u) { SSTL_C_PANIC("array front"); return 0; } return &a->data[0]; } \
+  /** \
+   * @brief Return a pointer to the first element, or null when empty. \
+   * @param a First operand or first range start. \
+   * @return Pointer to the first element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_front(NAME* a) { return (size_t)(CAP) == 0u ? 0 : &a->data[0]; } \
   /** \
    * @brief Run the generated back operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_back(NAME* a) { if ((size_t)(CAP) == 0u) { SSTL_C_PANIC("array back"); return 0; } return &a->data[(size_t)(CAP) - 1u]; } \
+  SSTL_C_INLINE T* NAME##_back(NAME* a) { if ((size_t)(CAP) == 0u) { SSTL_C_PANIC("array back"); return 0; } return &a->data[(size_t)(CAP) - 1u]; } \
+  /** \
+   * @brief Return a pointer to the last element, or null when empty. \
+   * @param a First operand or first range start. \
+   * @return Pointer to the last element, or null when empty. \
+   */ \
+  SSTL_C_INLINE T* NAME##_try_back(NAME* a) { return (size_t)(CAP) == 0u ? 0 : &a->data[(size_t)(CAP) - 1u]; } \
   /** \
    * @brief Run the generated at operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param i Zero-based logical index. \
    * @return Pointer described by the function brief, or null for probe-style failure cases. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_at(NAME* a, size_t i) { if (i >= (size_t)(CAP)) { SSTL_C_PANIC("array at"); return 0; } return &a->data[i]; } \
+  SSTL_C_INLINE T* NAME##_at(NAME* a, size_t i) { if (i >= (size_t)(CAP)) { SSTL_C_PANIC("array at"); return 0; } return &a->data[i]; } \
   /** \
    * @brief Run the generated try at operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param i Zero-based logical index. \
    * @return Pointer to the requested object on success; null on failure. \
    */ \
-  static SSTL_C_UNUSED T* NAME##_try_at(NAME* a, size_t i) { return i < (size_t)(CAP) ? &a->data[i] : 0; } \
+  SSTL_C_INLINE T* NAME##_try_at(NAME* a, size_t i) { return i < (size_t)(CAP) ? &a->data[i] : 0; } \
   /** \
    * @brief Run the generated cmp operation for this typed SSTL family. \
    * @param a First operand or first range start. \
@@ -157,21 +181,21 @@
    * @param cmp Caller-supplied argument used by this operation. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED int NAME##_cmp(const NAME* a, const NAME* b, sstl_cmp_fn cmp) { size_t i; for (i = 0u; i != (size_t)(CAP); ++i) { int r = cmp((const void*)&a->data[i], (const void*)&b->data[i]); if (r != 0) return r; } return 0; } \
+  SSTL_C_INLINE int NAME##_cmp(const NAME* a, const NAME* b, sstl_cmp_fn cmp) { size_t i; for (i = 0u; i != (size_t)(CAP); ++i) { int r = cmp((const void*)&a->data[i], (const void*)&b->data[i]); if (r != 0) return r; } return 0; } \
   /** \
    * @brief Run the generated fill operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param value Value supplied for comparison, assignment, insertion, or lookup. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_fill(NAME* a, T value) { size_t i; for (i = 0u; i != (size_t)(CAP); ++i) a->data[i] = value; } \
+  SSTL_C_INLINE void NAME##_fill(NAME* a, T value) { size_t i; for (i = 0u; i != (size_t)(CAP); ++i) a->data[i] = value; } \
   /** \
    * @brief Run the generated swap operation for this typed SSTL family. \
    * @param a First operand or first range start. \
    * @param b Second operand or second range start. \
    * @return Result described by the function brief. \
    */ \
-  static SSTL_C_UNUSED void NAME##_swap(NAME* a, NAME* b) { size_t i; for (i = 0u; i != (size_t)(CAP); ++i) { T tmp = a->data[i]; a->data[i] = b->data[i]; b->data[i] = tmp; } }
+  SSTL_C_INLINE void NAME##_swap(NAME* a, NAME* b) { size_t i; for (i = 0u; i != (size_t)(CAP); ++i) { T tmp = a->data[i]; a->data[i] = b->data[i]; b->data[i] = tmp; } }
 
 #endif
 

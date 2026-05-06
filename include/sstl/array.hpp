@@ -16,6 +16,7 @@
 
 #include "config.hpp"
 #include "iterator.hpp"
+#include "type_traits.hpp"
 
 namespace sstl {
 
@@ -36,9 +37,9 @@ public:
   /** @brief Unsigned size and index type used by the array. */
   typedef size_t size_type;
   /** @brief Mutable contiguous iterator over the array storage. */
-  typedef contiguous_iterator<T> iterator;
+  typedef T* iterator;
   /** @brief Const contiguous iterator over the array storage. */
-  typedef contiguous_iterator<const T> const_iterator;
+  typedef const T* const_iterator;
   /** @brief Mutable reverse iterator over the contiguous array storage. */
   typedef reverse_pointer_iterator<T> reverse_iterator;
   /** @brief Const reverse iterator over the contiguous array storage. */
@@ -103,13 +104,19 @@ public:
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  T& operator[](size_type i) { return *storage_.ptr(i); }
+  T& operator[](size_type i) {
+    if (i >= N) return fail_reference<T>("array::operator[]"); // LCOV_EXCL_BR_LINE
+    return *storage_.ptr(i);
+  }
   /**
    * @brief Const access element `i` without bounds checking.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  const T& operator[](size_type i) const { return *storage_.ptr(i); }
+  const T& operator[](size_type i) const {
+    if (i >= N) return fail_reference<const T>("array::operator[]"); // LCOV_EXCL_BR_LINE
+    return *storage_.ptr(i);
+  }
 
   /**
    * @brief Access element `i`, applying the active error policy when out of range.
@@ -117,7 +124,7 @@ public:
    * @return Result described by the function brief.
    */
   T& at(size_type i) {
-    if (i >= N) handle_error("array::at");
+    if (i >= N) return fail_reference<T>("array::at"); // LCOV_EXCL_BR_LINE
     return (*this)[i];
   }
   /**
@@ -126,9 +133,21 @@ public:
    * @return Result described by the function brief.
    */
   const T& at(size_type i) const {
-    if (i >= N) handle_error("array::at");
+    if (i >= N) return fail_reference<const T>("array::at"); // LCOV_EXCL_BR_LINE
     return (*this)[i];
   }
+  /**
+   * @brief Return a pointer to element `i`, or null when out of range.
+   * @param i Zero-based logical index.
+   * @return Pointer to element `i`, or null when out of range.
+   */
+  T* try_at(size_type i) { return i < N ? storage_.ptr(i) : 0; }
+  /**
+   * @brief Return a const pointer to element `i`, or null when out of range.
+   * @param i Zero-based logical index.
+   * @return Const pointer to element `i`, or null when out of range.
+   */
+  const T* try_at(size_type i) const { return i < N ? storage_.ptr(i) : 0; }
 
   /**
    * @brief Access the first public element.
@@ -247,28 +266,16 @@ public:
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(iterator it) const { return it.base() >= data() && it.base() <= data() + N; } // LCOV_EXCL_BR_LINE
+  bool is_valid_iterator(iterator it) const { return it >= data() && it <= data() + N; } // LCOV_EXCL_BR_LINE
 
   /**
    * @brief Validate that a const iterator lies in this array's public range or end.
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(const_iterator it) const { return it.base() >= data() && it.base() <= data() + N; } // LCOV_EXCL_BR_LINE
-
-  /**
-   * @brief Validate that a mutable raw pointer lies in this array's public range or end.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(T* it) const { return it >= data() && it <= data() + N; } // LCOV_EXCL_BR_LINE
-
-  /**
-   * @brief Validate that a const raw pointer lies in this array's public range or end.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(const T* it) const { return it >= data() && it <= data() + N; } // LCOV_EXCL_BR_LINE
+  template <class It>
+  typename enable_if<is_same<It, const_iterator>::value && !is_same<iterator, const_iterator>::value, bool>::type
+  is_valid_iterator(It it) const { return it >= data() && it <= data() + N; } // LCOV_EXCL_BR_LINE
 
   /**
    * @brief Assign the same value to every public element.
@@ -311,9 +318,9 @@ public:
   /** @brief Unsigned size and index type used by the zero-capacity specialization. */
   typedef size_t size_type;
   /** @brief Mutable iterator type for API parity; no public element is dereferenceable. */
-  typedef contiguous_iterator<T> iterator;
+  typedef T* iterator;
   /** @brief Const iterator type for API parity; no public element is dereferenceable. */
-  typedef contiguous_iterator<const T> const_iterator;
+  typedef const T* const_iterator;
   /** @brief Mutable empty reverse iterator type for API parity. */
   typedef reverse_pointer_iterator<T> reverse_iterator;
   /** @brief Const empty reverse iterator type for API parity. */
@@ -360,45 +367,57 @@ public:
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  T& operator[](size_type i) { (void)i; return *storage_.ptr(0); }
+  T& operator[](size_type i) { (void)i; return fail_reference<T>("array::operator[]"); } // LCOV_EXCL_LINE
   /**
    * @brief Policy path for unchecked const access on a zero-capacity array.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  const T& operator[](size_type i) const { (void)i; return *storage_.ptr(0); }
+  const T& operator[](size_type i) const { (void)i; return fail_reference<const T>("array::operator[]"); } // LCOV_EXCL_LINE
   /**
    * @brief Report out-of-range access through the active error policy.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  T& at(size_type i) { (void)i; handle_error("array::at"); return *storage_.ptr(0); }
+  T& at(size_type i) { (void)i; return fail_reference<T>("array::at"); } // LCOV_EXCL_LINE
   /**
    * @brief Report const out-of-range access through the active error policy.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  const T& at(size_type i) const { (void)i; handle_error("array::at"); return *storage_.ptr(0); }
+  const T& at(size_type i) const { (void)i; return fail_reference<const T>("array::at"); } // LCOV_EXCL_LINE
+  /**
+   * @brief Return null because no zero-capacity array index is valid.
+   * @param i Zero-based logical index.
+   * @return Null because no element is present.
+   */
+  T* try_at(size_type i) { (void)i; return 0; }
+  /**
+   * @brief Return null because no zero-capacity array index is valid.
+   * @param i Zero-based logical index.
+   * @return Null because no element is present.
+   */
+  const T* try_at(size_type i) const { (void)i; return 0; }
   /**
    * @brief Report empty front access through the active error policy.
    * @return Result described by the function brief.
    */
-  T& front() { handle_error("array::front"); return *storage_.ptr(0); }
+  T& front() { return fail_reference<T>("array::front"); } // LCOV_EXCL_LINE
   /**
    * @brief Report empty const front access through the active error policy.
    * @return Result described by the function brief.
    */
-  const T& front() const { handle_error("array::front"); return *storage_.ptr(0); }
+  const T& front() const { return fail_reference<const T>("array::front"); } // LCOV_EXCL_LINE
   /**
    * @brief Report empty back access through the active error policy.
    * @return Result described by the function brief.
    */
-  T& back() { handle_error("array::back"); return *storage_.ptr(0); }
+  T& back() { return fail_reference<T>("array::back"); } // LCOV_EXCL_LINE
   /**
    * @brief Report empty const back access through the active error policy.
    * @return Result described by the function brief.
    */
-  const T& back() const { handle_error("array::back"); return *storage_.ptr(0); }
+  const T& back() const { return fail_reference<const T>("array::back"); } // LCOV_EXCL_LINE
   /**
    * @brief Return null because there is no public first element.
    * @return Null because there is no public first element.
@@ -496,28 +515,16 @@ public:
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(iterator it) const { return it.base() == data(); }
+  bool is_valid_iterator(iterator it) const { return it == data(); }
 
   /**
    * @brief Validate the only const iterator value exposed by the zero-capacity array.
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(const_iterator it) const { return it.base() == data(); }
-
-  /**
-   * @brief Validate the only mutable raw pointer exposed by the zero-capacity array.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(T* it) const { return it == data(); }
-
-  /**
-   * @brief Validate the only const raw pointer exposed by the zero-capacity array.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(const T* it) const { return it == data(); }
+  template <class It>
+  typename enable_if<is_same<It, const_iterator>::value && !is_same<iterator, const_iterator>::value, bool>::type
+  is_valid_iterator(It it) const { return it == data(); }
 
   /** @brief No-op because no public elements exist. */
   void fill(const T&) {}

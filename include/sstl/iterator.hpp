@@ -14,6 +14,8 @@
  */
 #define SSTL_ITERATOR_HPP
 
+#include <stddef.h>
+
 namespace sstl {
 
 /** @brief Remove a top-level const qualifier from a contiguous iterator value type. */
@@ -42,6 +44,124 @@ struct bidirectional_iterator_tag : forward_iterator_tag {};
 /** @brief Marker tag for iterators supporting constant-time indexed access. */
 struct random_access_iterator_tag : bidirectional_iterator_tag {};
 
+/** @brief Iterator traits for SSTL iterator classes with nested typedefs. */
+template <class Iterator>
+struct iterator_traits {
+  /** @brief Iterator difference type. */
+  typedef typename Iterator::difference_type difference_type;
+  /** @brief Value type named by the iterator. */
+  typedef typename Iterator::value_type value_type;
+  /** @brief Pointer type returned by the iterator. */
+  typedef typename Iterator::pointer pointer;
+  /** @brief Reference type returned by dereference. */
+  typedef typename Iterator::reference reference;
+  /** @brief Iterator category tag. */
+  typedef typename Iterator::iterator_category iterator_category;
+};
+
+/** @brief Iterator traits specialization for mutable raw pointers. */
+template <class T>
+struct iterator_traits<T*> {
+  /** @brief Pointer difference type. */
+  typedef ptrdiff_t difference_type;
+  /** @brief Pointed-to value type. */
+  typedef T value_type;
+  /** @brief Mutable pointer type. */
+  typedef T* pointer;
+  /** @brief Mutable reference type. */
+  typedef T& reference;
+  /** @brief Raw pointers are random-access iterators. */
+  typedef random_access_iterator_tag iterator_category;
+};
+
+/** @brief Iterator traits specialization for const raw pointers. */
+template <class T>
+struct iterator_traits<const T*> {
+  /** @brief Pointer difference type. */
+  typedef ptrdiff_t difference_type;
+  /** @brief Pointed-to value type. */
+  typedef T value_type;
+  /** @brief Const pointer type. */
+  typedef const T* pointer;
+  /** @brief Const reference type. */
+  typedef const T& reference;
+  /** @brief Raw pointers are random-access iterators. */
+  typedef random_access_iterator_tag iterator_category;
+};
+
+/** @brief Count the number of increments needed to reach `last`. */
+template <class InputIt>
+inline typename iterator_traits<InputIt>::difference_type
+distance_impl(InputIt first, InputIt last, input_iterator_tag) {
+  typename iterator_traits<InputIt>::difference_type n = 0;
+  for (; first != last; ++first) ++n;
+  return n;
+}
+
+/** @brief Count the distance between two random-access iterators. */
+template <class RandomIt>
+inline typename iterator_traits<RandomIt>::difference_type
+distance_impl(RandomIt first, RandomIt last, random_access_iterator_tag) {
+  return last - first;
+}
+
+/** @brief Return the distance between two iterators. */
+template <class InputIt>
+inline typename iterator_traits<InputIt>::difference_type distance(InputIt first, InputIt last) {
+  return distance_impl(first, last, typename iterator_traits<InputIt>::iterator_category());
+}
+
+/** @brief Advance an input iterator forward by `n` steps. */
+template <class InputIt, class Distance>
+inline void advance_impl(InputIt& it, Distance n, input_iterator_tag) {
+  while (n > 0) {
+    ++it;
+    --n;
+  }
+}
+
+/** @brief Advance a bidirectional iterator by a signed offset. */
+template <class BidirectionalIt, class Distance>
+inline void advance_impl(BidirectionalIt& it, Distance n, bidirectional_iterator_tag) {
+  if (n >= 0) {
+    while (n > 0) {
+      ++it;
+      --n;
+    }
+  } else {
+    while (n < 0) {
+      --it;
+      ++n;
+    }
+  }
+}
+
+/** @brief Advance a random-access iterator by a signed offset. */
+template <class RandomIt, class Distance>
+inline void advance_impl(RandomIt& it, Distance n, random_access_iterator_tag) {
+  it += n;
+}
+
+/** @brief Advance an iterator by `n` positions. */
+template <class InputIt, class Distance>
+inline void advance(InputIt& it, Distance n) {
+  advance_impl(it, n, typename iterator_traits<InputIt>::iterator_category());
+}
+
+/** @brief Return an iterator advanced by `n` positions. */
+template <class InputIt>
+inline InputIt next(InputIt it, typename iterator_traits<InputIt>::difference_type n = 1) {
+  sstl::advance(it, n);
+  return it;
+}
+
+/** @brief Return an iterator moved backward by `n` positions. */
+template <class BidirectionalIt>
+inline BidirectionalIt prev(BidirectionalIt it, typename iterator_traits<BidirectionalIt>::difference_type n = 1) {
+  sstl::advance(it, -n);
+  return it;
+}
+
 /**
  * @brief Pointer-backed random-access iterator with standard nested typedefs.
  * @tparam T Pointed-to element type, including const-qualified element types.
@@ -57,7 +177,7 @@ public:
   /** @brief Element type exposed through iterator traits-style code. */
   typedef typename iterator_remove_const<T>::type value_type;
   /** @brief Signed distance type for pointer differences. */
-  typedef int difference_type;
+  typedef ptrdiff_t difference_type;
   /** @brief Pointer type returned by `operator->()` and `base()`. */
   typedef T* pointer;
   /** @brief Reference type returned by `operator*()`. */
@@ -239,6 +359,177 @@ inline contiguous_iterator<T> operator+(typename contiguous_iterator<T>::differe
 }
 
 /**
+ * @brief Reverse iterator adapter for SSTL iterator classes.
+ * @tparam Iterator Forward iterator type used as the reverse iterator base.
+ *
+ * The adapter follows the standard reverse-iterator convention: the stored
+ * base iterator points one position past the element returned by dereference.
+ */
+template <class Iterator>
+class reverse_iterator_adaptor {
+public:
+  /** @brief Wrapped forward iterator type. */
+  typedef Iterator iterator_type;
+  /** @brief Value type produced by dereferencing this iterator. */
+  typedef typename iterator_traits<Iterator>::value_type value_type;
+  /** @brief Signed distance type used by iterator arithmetic. */
+  typedef typename iterator_traits<Iterator>::difference_type difference_type;
+  /** @brief Pointer type returned by `operator->()`. */
+  typedef typename iterator_traits<Iterator>::pointer pointer;
+  /** @brief Reference type returned by `operator*()`. */
+  typedef typename iterator_traits<Iterator>::reference reference;
+  /** @brief Iterator category matching the wrapped iterator. */
+  typedef typename iterator_traits<Iterator>::iterator_category iterator_category;
+
+  /** @brief Construct a reverse iterator with a default base iterator. */
+  reverse_iterator_adaptor() : current_() {}
+  /**
+   * @brief Construct a reverse iterator from a forward base iterator.
+   * @param current Forward iterator one past the reverse element.
+   */
+  explicit reverse_iterator_adaptor(iterator_type current) : current_(current) {}
+
+  /**
+   * @brief Return the wrapped forward base iterator.
+   * @return The wrapped forward base iterator.
+   */
+  iterator_type base() const { return current_; }
+
+  /**
+   * @brief Return the element immediately before the wrapped base iterator.
+   * @return The element immediately before the wrapped base iterator.
+   */
+  reference operator*() const {
+    iterator_type tmp = current_;
+    --tmp;
+    return *tmp;
+  }
+
+  /**
+   * @brief Return a pointer to the reverse element.
+   * @return A pointer to the reverse element.
+   */
+  pointer operator->() const { return &operator*(); }
+
+  /**
+   * @brief Advance to the next reverse element.
+   * @return Result described by the function brief.
+   */
+  reverse_iterator_adaptor& operator++() { --current_; return *this; }
+  /**
+   * @brief Post-increment and return the previous reverse iterator.
+   * @return The previous reverse iterator value.
+   */
+  reverse_iterator_adaptor operator++(int) {
+    reverse_iterator_adaptor old(*this);
+    --current_;
+    return old;
+  }
+  /**
+   * @brief Move to the previous reverse element.
+   * @return Result described by the function brief.
+   */
+  reverse_iterator_adaptor& operator--() { ++current_; return *this; }
+  /**
+   * @brief Post-decrement and return the previous reverse iterator.
+   * @return The previous reverse iterator value.
+   */
+  reverse_iterator_adaptor operator--(int) {
+    reverse_iterator_adaptor old(*this);
+    ++current_;
+    return old;
+  }
+
+  /**
+   * @brief Advance by `n` reverse positions when the base iterator supports it.
+   * @param n Requested count or size.
+   * @return Result described by the function brief.
+   */
+  reverse_iterator_adaptor& operator+=(difference_type n) { current_ -= n; return *this; }
+  /**
+   * @brief Retreat by `n` reverse positions when the base iterator supports it.
+   * @param n Requested count or size.
+   * @return Result described by the function brief.
+   */
+  reverse_iterator_adaptor& operator-=(difference_type n) { current_ += n; return *this; }
+  /**
+   * @brief Return a reverse iterator advanced by `n` positions.
+   * @param n Requested count or size.
+   * @return A reverse iterator advanced by `n` positions.
+   */
+  reverse_iterator_adaptor operator+(difference_type n) const {
+    reverse_iterator_adaptor out(*this);
+    out += n;
+    return out;
+  }
+  /**
+   * @brief Return a reverse iterator retreated by `n` positions.
+   * @param n Requested count or size.
+   * @return A reverse iterator retreated by `n` positions.
+   */
+  reverse_iterator_adaptor operator-(difference_type n) const {
+    reverse_iterator_adaptor out(*this);
+    out -= n;
+    return out;
+  }
+  /**
+   * @brief Return the reverse distance from `other` to this iterator.
+   * @param other Other object participating in the operation.
+   * @return The reverse distance from `other` to this iterator.
+   */
+  difference_type operator-(const reverse_iterator_adaptor& other) const {
+    return other.current_ - current_;
+  }
+  /**
+   * @brief Access the element `n` reverse positions ahead.
+   * @param n Requested count or size.
+   * @return The element `n` reverse positions ahead.
+   */
+  reference operator[](difference_type n) const { return *(*this + n); }
+
+  /**
+   * @brief Compare two reverse iterators for equality.
+   * @param other Other object participating in the operation.
+   * @return `true` when both iterators have the same base.
+   */
+  bool operator==(const reverse_iterator_adaptor& other) const { return current_ == other.current_; }
+  /**
+   * @brief Compare two reverse iterators for inequality.
+   * @param other Other object participating in the operation.
+   * @return `true` when the iterators have different bases.
+   */
+  bool operator!=(const reverse_iterator_adaptor& other) const { return current_ != other.current_; }
+  /**
+   * @brief Compare reverse iterator ordering when the base iterator supports it.
+   * @param other Other object participating in the operation.
+   * @return `true` when this reverse iterator appears before `other`.
+   */
+  bool operator<(const reverse_iterator_adaptor& other) const { return other.current_ < current_; }
+  /**
+   * @brief Compare reverse iterator ordering when the base iterator supports it.
+   * @param other Other object participating in the operation.
+   * @return `true` when this reverse iterator appears after `other`.
+   */
+  bool operator>(const reverse_iterator_adaptor& other) const { return other < *this; }
+  /**
+   * @brief Compare reverse iterator ordering when the base iterator supports it.
+   * @param other Other object participating in the operation.
+   * @return `true` when this reverse iterator is not after `other`.
+   */
+  bool operator<=(const reverse_iterator_adaptor& other) const { return !(other < *this); }
+  /**
+   * @brief Compare reverse iterator ordering when the base iterator supports it.
+   * @param other Other object participating in the operation.
+   * @return `true` when this reverse iterator is not before `other`.
+   */
+  bool operator>=(const reverse_iterator_adaptor& other) const { return !(*this < other); }
+
+private:
+  /** @brief Wrapped forward iterator one past the reverse element. */
+  iterator_type current_;
+};
+
+/**
  * @brief Reverse iterator adapter for raw pointer iterators.
  * @tparam T Pointed-to element type, including const-qualified element types.
  *
@@ -256,7 +547,7 @@ public:
   /** @brief Element type produced by dereferencing this iterator. */
   typedef T value_type;
   /** @brief Signed distance type for pointer differences. */
-  typedef int difference_type;
+  typedef ptrdiff_t difference_type;
   /** @brief Pointer type returned by `operator->()`. */
   typedef T* pointer;
   /** @brief Reference type returned by `operator*()`. */

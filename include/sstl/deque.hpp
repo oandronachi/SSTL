@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file deque.hpp
  * @brief Fixed-capacity ring-buffer deque.
  *
@@ -14,6 +14,7 @@
 
 #include "config.hpp"
 #include "iterator.hpp"
+#include "type_traits.hpp"
 #include "utility.hpp"
 
 namespace sstl {
@@ -37,7 +38,7 @@ public:
     /** @brief Mutable pointer returned by arrow access. */
     typedef T* pointer;
     /** @brief Signed distance type for random-access arithmetic. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
     typedef random_access_iterator_tag iterator_category;
 
@@ -161,6 +162,7 @@ public:
     bool operator>=(const iterator& other) const { return other <= *this; }
 
   private:
+    /** @brief Allow deque specializations to construct and inspect mutable iterators. */
     template <class, size_t> friend class deque;
     /** @brief Owning deque used to translate logical indices to elements. */
     deque* owner_;
@@ -180,7 +182,7 @@ public:
     /** @brief Const pointer returned by arrow access. */
     typedef const T* pointer;
     /** @brief Signed distance type for random-access arithmetic. */
-    typedef int difference_type;
+    typedef ptrdiff_t difference_type;
     /** @brief Iterator category advertised to generic algorithms. */
     typedef random_access_iterator_tag iterator_category;
 
@@ -310,6 +312,7 @@ public:
     bool operator>=(const const_iterator& other) const { return other <= *this; }
 
   private:
+    /** @brief Allow deque specializations to construct and inspect const iterators. */
     template <class, size_t> friend class deque;
     /** @brief Owning deque used to translate logical indices to elements. */
     const deque* owner_;
@@ -318,6 +321,11 @@ public:
     /** @brief Iterator-validity epoch captured when the iterator was created. */
     unsigned generation_;
   };
+
+  /** @brief Mutable reverse iterator over the logical deque sequence. */
+  typedef reverse_iterator_adaptor<iterator> reverse_iterator;
+  /** @brief Const reverse iterator over the logical deque sequence. */
+  typedef reverse_iterator_adaptor<const_iterator> const_reverse_iterator;
 
   /** @brief Construct an empty deque with a valid initial iterator epoch. */
   deque() : head_(0u), size_(0u), generation_(1u) {}
@@ -350,6 +358,11 @@ public:
    */
   size_type size() const { return size_; }
   /**
+   * @brief Return the largest number of elements this fixed-capacity deque can hold.
+   * @return The largest number of elements this fixed-capacity deque can hold.
+   */
+  size_type max_size() const { return N; }
+  /**
    * @brief Return the fixed compile-time capacity without requiring an object.
    * @return The fixed compile-time capacity without requiring an object.
    */
@@ -370,20 +383,57 @@ public:
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  T& operator[](size_type i) { return *storage_.ptr(physical(i)); }
+  T& operator[](size_type i) {
+    if (i >= size_) return fail_reference<T>("deque::operator[]"); // LCOV_EXCL_BR_LINE
+    return *storage_.ptr(physical(i));
+  }
   /**
    * @brief Const access logical element `i` without bounds checking.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  const T& operator[](size_type i) const { return *storage_.ptr(physical(i)); }
+  const T& operator[](size_type i) const {
+    if (i >= size_) return fail_reference<const T>("deque::operator[]"); // LCOV_EXCL_BR_LINE
+    return *storage_.ptr(physical(i));
+  }
+
+  /**
+   * @brief Access logical element `i`, applying the active error policy when out of range.
+   * @param i Zero-based logical index.
+   * @return Result described by the function brief.
+   */
+  T& at(size_type i) {
+    if (i >= size_) return fail_reference<T>("deque::at"); // LCOV_EXCL_BR_LINE
+    return (*this)[i];
+  }
+  /**
+   * @brief Const access logical element `i`, applying the active error policy when out of range.
+   * @param i Zero-based logical index.
+   * @return Result described by the function brief.
+   */
+  const T& at(size_type i) const {
+    if (i >= size_) return fail_reference<const T>("deque::at"); // LCOV_EXCL_BR_LINE
+    return (*this)[i];
+  }
+  /**
+   * @brief Return a pointer to logical element `i`, or null when out of range.
+   * @param i Zero-based logical index.
+   * @return Pointer to logical element `i`, or null when out of range.
+   */
+  T* try_at(size_type i) { return i < size_ ? storage_.ptr(physical(i)) : 0; }
+  /**
+   * @brief Return a const pointer to logical element `i`, or null when out of range.
+   * @param i Zero-based logical index.
+   * @return Const pointer to logical element `i`, or null when out of range.
+   */
+  const T* try_at(size_type i) const { return i < size_ ? storage_.ptr(physical(i)) : 0; }
 
   /**
    * @brief Access the front element, applying the active error policy when empty.
    * @return Result described by the function brief.
    */
   T& front() {
-    if (empty()) handle_error("deque::front empty"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<T>("deque::front empty"); // LCOV_EXCL_BR_LINE
     return (*this)[0u];
   }
   /**
@@ -391,7 +441,7 @@ public:
    * @return Result described by the function brief.
    */
   const T& front() const {
-    if (empty()) handle_error("deque::front empty"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<const T>("deque::front empty"); // LCOV_EXCL_BR_LINE
     return (*this)[0u];
   }
   /**
@@ -399,7 +449,7 @@ public:
    * @return Result described by the function brief.
    */
   T& back() {
-    if (empty()) handle_error("deque::back empty"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<T>("deque::back empty"); // LCOV_EXCL_BR_LINE
     return (*this)[size_ - 1u];
   }
   /**
@@ -407,7 +457,7 @@ public:
    * @return Result described by the function brief.
    */
   const T& back() const {
-    if (empty()) handle_error("deque::back empty"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<const T>("deque::back empty"); // LCOV_EXCL_BR_LINE
     return (*this)[size_ - 1u];
   }
   /**
@@ -447,10 +497,50 @@ public:
    */
   const_iterator begin() const { return const_iterator(this, 0u, generation_); }
   /**
+   * @brief Return a const iterator to the first logical element.
+   * @return A const iterator to the first logical element.
+   */
+  const_iterator cbegin() const { return begin(); }
+  /**
    * @brief Return a const iterator one past the final logical element.
    * @return A const iterator one past the final logical element.
    */
   const_iterator end() const { return const_iterator(this, size_, generation_); }
+  /**
+   * @brief Return a const iterator one past the final logical element.
+   * @return A const iterator one past the final logical element.
+   */
+  const_iterator cend() const { return end(); }
+  /**
+   * @brief Return a mutable reverse iterator to the final logical element.
+   * @return A mutable reverse iterator to the final logical element.
+   */
+  reverse_iterator rbegin() { return reverse_iterator(end()); }
+  /**
+   * @brief Return a const reverse iterator to the final logical element.
+   * @return A const reverse iterator to the final logical element.
+   */
+  const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+  /**
+   * @brief Return a const reverse iterator to the final logical element.
+   * @return A const reverse iterator to the final logical element.
+   */
+  const_reverse_iterator crbegin() const { return const_reverse_iterator(end()); }
+  /**
+   * @brief Return a mutable reverse iterator one before the first logical element.
+   * @return A mutable reverse iterator one before the first logical element.
+   */
+  reverse_iterator rend() { return reverse_iterator(begin()); }
+  /**
+   * @brief Return a const reverse iterator one before the first logical element.
+   * @return A const reverse iterator one before the first logical element.
+   */
+  const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+  /**
+   * @brief Return a const reverse iterator one before the first logical element.
+   * @return A const reverse iterator one before the first logical element.
+   */
+  const_reverse_iterator crend() const { return const_reverse_iterator(begin()); }
 
   /**
    * @brief Append an element at the logical back.
@@ -513,7 +603,7 @@ public:
    */
   iterator insert(const_iterator pos, const T& value) {
     const size_type index = pos.index_;
-    if (pos.owner_ != this || index > size_ || full()) {
+    if (!is_valid_iterator(pos) || index > size_ || full()) {
       handle_error("deque::insert");
       return end();
     }
@@ -532,6 +622,81 @@ public:
     }
     (*this)[index] = value_copy;
     return begin() + static_cast<int>(index);
+  }
+
+  /**
+   * @brief Try to insert an element before `pos` without invoking the active error policy.
+   * @param pos Logical position in `[begin(), end()]`.
+   * @param value Element copied into the deque.
+   * @return Iterator to the inserted element, or `end()` when insertion fails.
+   */
+  iterator try_insert(const_iterator pos, const T& value) {
+    const size_type index = pos.index_;
+    if (!is_valid_iterator(pos) || index > size_ || full()) return end();
+    return insert(pos, value);
+  }
+
+  /**
+   * @brief Insert `count` copies of `value` before `pos`.
+   * @param pos Logical position in `[begin(), end()]`.
+   * @param count Requested element count.
+   * @param value Element copied into the deque.
+   * @return Iterator to the first inserted element, or `end()` when insertion fails.
+   */
+  iterator insert(const_iterator pos, size_type count, const T& value) {
+    const size_type index = pos.index_;
+    if (!is_valid_iterator(pos) || index > size_ || count > N - size_) {
+      handle_error("deque::insert count");
+      return end();
+    }
+    if (count == 0u) return begin() + static_cast<int>(index);
+    for (size_type i = 0u; i != count; ++i) {
+      iterator inserted = insert(begin() + static_cast<int>(index + i), value);
+      if (inserted == end()) return end(); // LCOV_EXCL_BR_LINE
+    }
+    return begin() + static_cast<int>(index);
+  }
+
+  /**
+   * @brief Try to insert `count` copies of `value` before `pos` without invoking the active error policy.
+   * @param pos Logical position in `[begin(), end()]`.
+   * @param count Requested element count.
+   * @param value Element copied into the deque.
+   * @return Iterator to the first inserted element, or `end()` when insertion fails.
+   */
+  iterator try_insert(const_iterator pos, size_type count, const T& value) {
+    const size_type index = pos.index_;
+    if (!is_valid_iterator(pos) || index > size_ || count > N - size_) return end();
+    if (count == 0u) return begin() + static_cast<int>(index);
+    for (size_type i = 0u; i != count; ++i) {
+      iterator inserted = insert(begin() + static_cast<int>(index + i), value);
+      if (inserted == end()) return end(); // LCOV_EXCL_BR_LINE
+    }
+    return begin() + static_cast<int>(index);
+  }
+
+  /**
+   * @brief Insert a range of values before `pos`.
+   * @param pos Logical position in `[begin(), end()]`.
+   * @param first Start of the half-open input range.
+   * @param last One-past-end of the input range.
+   * @return Iterator to the first inserted element, or `end()` when insertion fails.
+   */
+  template <class InputIt>
+  iterator insert(const_iterator pos, InputIt first, InputIt last) {
+    return insert_dispatch(pos, first, last, bool_constant<is_integral<InputIt>::value>());
+  }
+
+  /**
+   * @brief Try to insert a range before `pos` without invoking the active error policy.
+   * @param pos Logical position in `[begin(), end()]`.
+   * @param first Start of the half-open input range.
+   * @param last One-past-end of the input range.
+   * @return Iterator to the first inserted element, or `end()` when insertion fails.
+   */
+  template <class InputIt>
+  iterator try_insert(const_iterator pos, InputIt first, InputIt last) {
+    return try_insert_dispatch(pos, first, last, bool_constant<is_integral<InputIt>::value>());
   }
 
   /** @brief Remove the logical back element. */
@@ -590,7 +755,7 @@ public:
    */
   iterator erase(const_iterator pos) {
     const size_type index = pos.index_;
-    if (pos.owner_ != this || index >= size_) {
+    if (!is_valid_iterator(pos) || index >= size_) {
       handle_error("deque::erase");
       return end();
     }
@@ -606,6 +771,25 @@ public:
       (*this)[i] = (*this)[i + 1u];
     }
     pop_back();
+    return begin() + static_cast<int>(index);
+  }
+
+  /**
+   * @brief Erase the half-open logical range `[first,last)`.
+   * @param first Start of the half-open range.
+   * @param last One-past-end of the half-open range.
+   * @return Iterator to the element that followed the erased range.
+   */
+  iterator erase(const_iterator first, const_iterator last) {
+    if (!is_valid_iterator(first) || !is_valid_iterator(last) || first.index_ > last.index_ || last.index_ > size_) {
+      handle_error("deque::erase range");
+      return end();
+    }
+    const size_type index = first.index_;
+    const size_type count = last.index_ - first.index_;
+    for (size_type i = 0u; i != count; ++i) {
+      (void)erase(begin() + static_cast<int>(index));
+    }
     return begin() + static_cast<int>(index);
   }
 
@@ -711,6 +895,76 @@ private:
     ++generation_;
     if (generation_ == 0u) generation_ = 1u; // LCOV_EXCL_BR_LINE
   }
+
+  /**
+   * @brief Count a multipass input range before mutating the deque.
+   * @param first Start of the half-open range.
+   * @param last One-past-end of the half-open range.
+   * @return Number of elements in the range.
+   */
+  template <class InputIt>
+  size_type range_count(InputIt first, InputIt last) const {
+    size_type count = 0u;
+    for (; first != last; ++first) ++count;
+    return count;
+  }
+
+  /**
+   * @brief Dispatch integer insert calls to counted insertion.
+   * @param pos Logical insertion position.
+   * @param count Requested element count.
+   * @param value Element copied into the deque.
+   * @return Iterator to the first inserted element, or `end()` on failure.
+   */
+  template <class Count, class Value>
+  iterator insert_dispatch(const_iterator pos, Count count, Value value, bool_constant<true>) {
+    return insert(pos, static_cast<size_type>(count), static_cast<T>(value));
+  }
+
+  /**
+   * @brief Dispatch iterator insert calls to range insertion.
+   * @param pos Logical insertion position.
+   * @param first Start of the half-open range.
+   * @param last One-past-end of the half-open range.
+   * @return Iterator to the first inserted element, or `end()` on failure.
+   */
+  template <class InputIt>
+  iterator insert_dispatch(const_iterator pos, InputIt first, InputIt last, bool_constant<false>) {
+    const size_type index = pos.index_;
+    const size_type count = range_count(first, last);
+    if (!is_valid_iterator(pos) || index > size_ || count > N - size_) {
+      handle_error("deque::insert range");
+      return end();
+    }
+    if (count == 0u) return begin() + static_cast<int>(index);
+    size_type offset = 0u;
+    for (; first != last; ++first, ++offset) {
+      iterator inserted = insert(begin() + static_cast<int>(index + offset), *first);
+      if (inserted == end()) return end(); // LCOV_EXCL_BR_LINE
+    }
+    return begin() + static_cast<int>(index);
+  }
+
+  /** @brief Dispatch integer quiet insert calls to counted insertion. */
+  template <class Count, class Value>
+  iterator try_insert_dispatch(const_iterator pos, Count count, Value value, bool_constant<true>) {
+    return try_insert(pos, static_cast<size_type>(count), static_cast<T>(value));
+  }
+
+  /** @brief Dispatch iterator quiet insert calls to range insertion. */
+  template <class InputIt>
+  iterator try_insert_dispatch(const_iterator pos, InputIt first, InputIt last, bool_constant<false>) {
+    const size_type index = pos.index_;
+    const size_type count = range_count(first, last);
+    if (!is_valid_iterator(pos) || index > size_ || count > N - size_) return end();
+    if (count == 0u) return begin() + static_cast<int>(index);
+    size_type offset = 0u;
+    for (; first != last; ++first, ++offset) {
+      iterator inserted = insert(begin() + static_cast<int>(index + offset), *first);
+      if (inserted == end()) return end(); // LCOV_EXCL_BR_LINE
+    }
+    return begin() + static_cast<int>(index);
+  }
 };
 
 /**
@@ -722,6 +976,48 @@ template <class T, size_t N>
 inline void swap(deque<T, N>& lhs, deque<T, N>& rhs) {
   lhs.swap(rhs);
 }
+
+/**
+ * @brief Compare two deques for element-wise equality across capacities.
+ * @param lhs First deque.
+ * @param rhs Second deque.
+ * @return `true` when both logical sequences are equal.
+ */
+template <class T, size_t N, size_t M>
+inline bool operator==(const deque<T, N>& lhs, const deque<T, M>& rhs) {
+  if (lhs.size() != rhs.size()) return false;
+  for (size_t i = 0u; i != lhs.size(); ++i) {
+    if (!(lhs[i] == rhs[i])) return false;
+  }
+  return true;
+}
+
+/** @brief Compare two deques for inequality. */
+template <class T, size_t N, size_t M>
+inline bool operator!=(const deque<T, N>& lhs, const deque<T, M>& rhs) { return !(lhs == rhs); }
+
+/** @brief Lexicographically compare two deque sequences. */
+template <class T, size_t N, size_t M>
+inline bool operator<(const deque<T, N>& lhs, const deque<T, M>& rhs) {
+  const size_t common = lhs.size() < rhs.size() ? lhs.size() : rhs.size();
+  for (size_t i = 0u; i != common; ++i) {
+    if (lhs[i] < rhs[i]) return true;
+    if (rhs[i] < lhs[i]) return false;
+  }
+  return lhs.size() < rhs.size();
+}
+
+/** @brief Return true when `lhs` is not lexicographically greater than `rhs`. */
+template <class T, size_t N, size_t M>
+inline bool operator<=(const deque<T, N>& lhs, const deque<T, M>& rhs) { return !(rhs < lhs); }
+
+/** @brief Return true when `lhs` is lexicographically greater than `rhs`. */
+template <class T, size_t N, size_t M>
+inline bool operator>(const deque<T, N>& lhs, const deque<T, M>& rhs) { return rhs < lhs; }
+
+/** @brief Return true when `lhs` is not lexicographically less than `rhs`. */
+template <class T, size_t N, size_t M>
+inline bool operator>=(const deque<T, N>& lhs, const deque<T, M>& rhs) { return !(lhs < rhs); }
 
 } // namespace sstl
 

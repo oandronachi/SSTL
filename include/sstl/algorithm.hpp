@@ -17,6 +17,7 @@
 #include "numeric.hpp"
 #include "utility.hpp"
 
+/** @brief Namespace containing the C++ SSTL public API and implementation helpers. */
 namespace sstl {
 
 /*

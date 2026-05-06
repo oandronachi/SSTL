@@ -25,6 +25,7 @@ struct variant_none {};
 /** @brief Compile-time mapping from a requested type to its variant alternative index. */
 template <class T, class A, class B, class C = variant_none, class D = variant_none>
 struct variant_index_of {
+  /** @brief Anonymous enum carrying the resolved alternative index. */
   enum {
     /** @brief Zero-based alternative index for `T`, or -1 when `T` is not present. */
     value =
@@ -99,22 +100,34 @@ public:
  * @brief Access alternative 0 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  A& get0() { return *storage_.a.ptr(0); }
+  A& get0() {
+    if (idx_ != 0) return fail_reference<A>("variant::get0"); // LCOV_EXCL_BR_LINE
+    return *storage_.a.ptr(0);
+  }
 /**
  * @brief Access alternative 0 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const A& get0() const { return *storage_.a.ptr(0); }
+  const A& get0() const {
+    if (idx_ != 0) return fail_reference<const A>("variant::get0");
+    return *storage_.a.ptr(0);
+  }
 /**
  * @brief Access alternative 1 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  B& get1() { return *storage_.b.ptr(0); }
+  B& get1() {
+    if (idx_ != 1) return fail_reference<B>("variant::get1"); // LCOV_EXCL_BR_LINE
+    return *storage_.b.ptr(0);
+  }
 /**
  * @brief Access alternative 1 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const B& get1() const { return *storage_.b.ptr(0); }
+  const B& get1() const {
+    if (idx_ != 1) return fail_reference<const B>("variant::get1");
+    return *storage_.b.ptr(0);
+  }
 
 /**
  * @brief Dispatch the active variant alternative to a visitor.
@@ -239,32 +252,50 @@ public:
  * @brief Access alternative 0 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  A& get0() { return *storage_.a.ptr(0); }
+  A& get0() {
+    if (idx_ != 0) return fail_reference<A>("variant::get0"); // LCOV_EXCL_BR_LINE
+    return *storage_.a.ptr(0);
+  }
 /**
  * @brief Access alternative 0 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const A& get0() const { return *storage_.a.ptr(0); }
+  const A& get0() const {
+    if (idx_ != 0) return fail_reference<const A>("variant::get0");
+    return *storage_.a.ptr(0);
+  }
 /**
  * @brief Access alternative 1 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  B& get1() { return *storage_.b.ptr(0); }
+  B& get1() {
+    if (idx_ != 1) return fail_reference<B>("variant::get1"); // LCOV_EXCL_BR_LINE
+    return *storage_.b.ptr(0);
+  }
 /**
  * @brief Access alternative 1 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const B& get1() const { return *storage_.b.ptr(0); }
+  const B& get1() const {
+    if (idx_ != 1) return fail_reference<const B>("variant::get1");
+    return *storage_.b.ptr(0);
+  }
 /**
  * @brief Access alternative 2 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  C& get2() { return *storage_.c.ptr(0); }
+  C& get2() {
+    if (idx_ != 2) return fail_reference<C>("variant::get2"); // LCOV_EXCL_BR_LINE
+    return *storage_.c.ptr(0);
+  }
 /**
  * @brief Access alternative 2 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const C& get2() const { return *storage_.c.ptr(0); }
+  const C& get2() const {
+    if (idx_ != 2) return fail_reference<const C>("variant::get2");
+    return *storage_.c.ptr(0);
+  }
 
 /**
  * @brief Dispatch the active variant alternative to a visitor.
@@ -406,42 +437,66 @@ public:
  * @brief Access alternative 0 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  A& get0() { return *storage_.a.ptr(0); }
+  A& get0() {
+    if (idx_ != 0) return fail_reference<A>("variant::get0"); // LCOV_EXCL_BR_LINE
+    return *storage_.a.ptr(0);
+  }
 /**
  * @brief Access alternative 0 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const A& get0() const { return *storage_.a.ptr(0); }
+  const A& get0() const {
+    if (idx_ != 0) return fail_reference<const A>("variant::get0");
+    return *storage_.a.ptr(0);
+  }
 /**
  * @brief Access alternative 1 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  B& get1() { return *storage_.b.ptr(0); }
+  B& get1() {
+    if (idx_ != 1) return fail_reference<B>("variant::get1"); // LCOV_EXCL_BR_LINE
+    return *storage_.b.ptr(0);
+  }
 /**
  * @brief Access alternative 1 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const B& get1() const { return *storage_.b.ptr(0); }
+  const B& get1() const {
+    if (idx_ != 1) return fail_reference<const B>("variant::get1");
+    return *storage_.b.ptr(0);
+  }
 /**
  * @brief Access alternative 2 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  C& get2() { return *storage_.c.ptr(0); }
+  C& get2() {
+    if (idx_ != 2) return fail_reference<C>("variant::get2"); // LCOV_EXCL_BR_LINE
+    return *storage_.c.ptr(0);
+  }
 /**
  * @brief Access alternative 2 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const C& get2() const { return *storage_.c.ptr(0); }
+  const C& get2() const {
+    if (idx_ != 2) return fail_reference<const C>("variant::get2");
+    return *storage_.c.ptr(0);
+  }
 /**
  * @brief Access alternative 3 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  D& get3() { return *storage_.d.ptr(0); }
+  D& get3() {
+    if (idx_ != 3) return fail_reference<D>("variant::get3"); // LCOV_EXCL_BR_LINE
+    return *storage_.d.ptr(0);
+  }
 /**
  * @brief Access alternative 3 in this fixed-arity variant.
  * @return Result described by the function brief.
  */
-  const D& get3() const { return *storage_.d.ptr(0); }
+  const D& get3() const {
+    if (idx_ != 3) return fail_reference<const D>("variant::get3");
+    return *storage_.d.ptr(0);
+  }
 
 /**
  * @brief Dispatch the active variant alternative to a visitor.

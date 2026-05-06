@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file vector.hpp
  * @brief C++03 SSTL public header with static, allocation-free API surface.
  *
@@ -38,9 +38,9 @@ public:
   /** @brief Unsigned size and index type used by the vector. */
   typedef size_t size_type;
   /** @brief Mutable contiguous iterator over live elements. */
-  typedef contiguous_iterator<T> iterator;
+  typedef T* iterator;
   /** @brief Const contiguous iterator over live elements. */
-  typedef contiguous_iterator<const T> const_iterator;
+  typedef const T* const_iterator;
   /** @brief Mutable reverse iterator over the live contiguous range. */
   typedef reverse_pointer_iterator<T> reverse_iterator;
   /** @brief Const reverse iterator over the live contiguous range. */
@@ -125,13 +125,19 @@ public:
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  T& operator[](size_type i) { return *storage_.ptr(i); }
+  T& operator[](size_type i) {
+    if (i >= size_) return fail_reference<T>("vector::operator[]"); // LCOV_EXCL_BR_LINE
+    return *storage_.ptr(i);
+  }
   /**
    * @brief Access element `i` without bounds checking through a const vector.
    * @param i Zero-based logical index.
    * @return Result described by the function brief.
    */
-  const T& operator[](size_type i) const { return *storage_.ptr(i); }
+  const T& operator[](size_type i) const {
+    if (i >= size_) return fail_reference<const T>("vector::operator[]"); // LCOV_EXCL_BR_LINE
+    return *storage_.ptr(i);
+  }
 
   /**
    * @brief Access element `i`, applying the active error policy when out of range.
@@ -139,7 +145,7 @@ public:
    * @return Result described by the function brief.
    */
   T& at(size_type i) {
-    if (i >= size_) handle_error("vector::at"); // LCOV_EXCL_BR_LINE
+    if (i >= size_) return fail_reference<T>("vector::at"); // LCOV_EXCL_BR_LINE
     return (*this)[i];
   }
   /**
@@ -148,7 +154,7 @@ public:
    * @return Result described by the function brief.
    */
   const T& at(size_type i) const {
-    if (i >= size_) handle_error("vector::at"); // LCOV_EXCL_BR_LINE
+    if (i >= size_) return fail_reference<const T>("vector::at"); // LCOV_EXCL_BR_LINE
     return (*this)[i];
   }
 
@@ -170,7 +176,7 @@ public:
    * @return Result described by the function brief.
    */
   T& front() {
-    if (empty()) handle_error("vector::front"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<T>("vector::front"); // LCOV_EXCL_BR_LINE
     return (*this)[0];
   }
   /**
@@ -178,7 +184,7 @@ public:
    * @return Result described by the function brief.
    */
   const T& front() const {
-    if (empty()) handle_error("vector::front"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<const T>("vector::front"); // LCOV_EXCL_BR_LINE
     return (*this)[0];
   }
   /**
@@ -186,7 +192,7 @@ public:
    * @return Result described by the function brief.
    */
   T& back() {
-    if (empty()) handle_error("vector::back"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<T>("vector::back"); // LCOV_EXCL_BR_LINE
     return (*this)[size_ - 1];
   }
   /**
@@ -194,7 +200,7 @@ public:
    * @return Result described by the function brief.
    */
   const T& back() const {
-    if (empty()) handle_error("vector::back"); // LCOV_EXCL_BR_LINE
+    if (empty()) return fail_reference<const T>("vector::back"); // LCOV_EXCL_BR_LINE
     return (*this)[size_ - 1];
   }
   /**
@@ -294,28 +300,14 @@ public:
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(iterator it) const { return it.base() >= data() && it.base() <= data() + size_; }
+  bool is_valid_iterator(iterator it) const { return it >= data() && it <= data() + size_; }
 
   /**
    * @brief Validate that a const iterator lies in this vector's live range or end.
    * @param it Caller-supplied argument used by this operation.
    * @return `true` when the documented condition holds; otherwise `false`.
    */
-  bool is_valid_iterator(const_iterator it) const { return it.base() >= data() && it.base() <= data() + size_; }
-
-  /**
-   * @brief Validate that a mutable raw pointer lies in this vector's live range or end.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(T* it) const { return it >= data() && it <= data() + size_; }
-
-  /**
-   * @brief Validate that a const raw pointer lies in this vector's live range or end.
-   * @param it Caller-supplied argument used by this operation.
-   * @return `true` when the documented condition holds; otherwise `false`.
-   */
-  bool is_valid_iterator(const T* it) const { return it >= data() && it <= data() + size_; }
+  bool is_valid_iterator(const_iterator it) const { return it >= data() && it <= data() + size_; }
 
   /**
    * @brief Append one element if capacity remains.
@@ -513,8 +505,11 @@ public:
    * @return Iterator to the element that shifted into `pos`, or `end()`.
    */
   iterator erase(const_iterator pos) {
+    if (!is_valid_iterator(pos) || pos == end()) {
+      handle_error("vector::erase iterator");
+      return end();
+    }
     size_type index = static_cast<size_type>(pos - begin());
-    if (index >= size_) return end();
     for (size_type i = index; i + 1 < size_; ++i) (*this)[i] = (*this)[i + 1];
     pop_back();
     return begin() + index;
@@ -527,11 +522,12 @@ public:
    * @return Result described by the function brief.
    */
   iterator erase(const_iterator first, const_iterator last) {
+    if (!is_valid_iterator(first) || !is_valid_iterator(last) || last < first) {
+      handle_error("vector::erase range");
+      return end();
+    }
     size_type begin_index = static_cast<size_type>(first - begin());
     size_type end_index = static_cast<size_type>(last - begin());
-    if (begin_index > size_) return end();
-    if (end_index > size_) end_index = size_;
-    if (end_index < begin_index) return end();
     const size_type count = end_index - begin_index;
     const size_type new_size = size_ - count;
     for (size_type i = begin_index; i + count < size_; ++i) (*this)[i] = (*this)[i + count];
