@@ -274,6 +274,12 @@ static void array_span_and_string_weak_branch_edges_are_exercised() {
   SSTL_TEST_EQ(array_values[1], 7);
   SSTL_TEST_EQ(array_values[2], 7);
   {
+    sstl::array<int, 3> unequal_values;
+    unequal_values.fill(7);
+    unequal_values[2] = 8;
+    SSTL_TEST_ASSERT(!(array_values == unequal_values));
+  }
+  {
     const sstl::array<int, 3>& const_array_values = array_values;
     SSTL_TEST_EQ(const_array_values.try_front()[0], 7);
     SSTL_TEST_EQ(const_array_values.try_back()[0], 7);
@@ -317,6 +323,9 @@ static void array_span_and_string_weak_branch_edges_are_exercised() {
     SSTL_TEST_ASSERT(empty_span.is_valid_iterator(static_cast<int*>(0)));
     SSTL_TEST_ASSERT(empty_span.is_valid_iterator(static_cast<const int*>(0)));
     SSTL_TEST_ASSERT(empty_span.is_valid_iterator(empty_span.begin()));
+    SSTL_TEST_ASSERT(empty_span.end() == empty_span.begin());
+    SSTL_TEST_ASSERT(empty_span.cend() == empty_span.cbegin());
+    SSTL_TEST_ASSERT(empty_span.subspan(0u, 2u).empty());
     SSTL_TEST_ASSERT(!empty_span.is_valid_iterator(raw_span_values));
     SSTL_TEST_ASSERT(!empty_span.is_valid_iterator(static_cast<const int*>(raw_span_values)));
     SSTL_TEST_ASSERT(!empty_span.is_valid_iterator(sstl::span<int>::iterator(raw_span_values)));
@@ -353,7 +362,7 @@ static void array_span_and_string_weak_branch_edges_are_exercised() {
   */
   sstl::string<4> hash_left("abx");
   sstl::string<4> hash_right("ab");
-  SSTL_TEST_ASSERT(hash_left.pop_back());
+  hash_left.pop_back();
   sstl::hash<sstl::string<4> > string_hash;
   SSTL_TEST_EQ(string_hash(hash_left), string_hash(hash_right));
   SSTL_TEST_ASSERT(hash_right.push_back('c'));
@@ -481,6 +490,23 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
   SSTL_TEST_ASSERT(invalid_insert.insert_after(invalid_insert.before_begin(), 3) != invalid_insert.end());
   SSTL_TEST_ASSERT(invalid_insert.insert_after(invalid_insert.before_begin(), 4) == invalid_insert.end());
 
+  {
+    sstl::forward_list<int, 4> edges;
+    sstl::forward_list<int, 4> alien_edges;
+    edges = edges;
+    edges.pop_front();
+    SSTL_TEST_ASSERT(edges.try_insert_after(edges.before_begin(), 1) != edges.end());
+    sstl::forward_list<int, 4>::iterator first = edges.begin();
+    SSTL_TEST_ASSERT(edges.try_insert_after(first, 2) != edges.end());
+    int popped = 0;
+    SSTL_TEST_ASSERT(edges.try_pop_front(&popped));
+    SSTL_TEST_EQ(popped, 1);
+    SSTL_TEST_ASSERT(edges.try_pop_front(&popped));
+    SSTL_TEST_EQ(popped, 2);
+    SSTL_TEST_ASSERT(alien_edges.insert_after(alien_edges.before_begin(), 9) != alien_edges.end());
+    SSTL_TEST_ASSERT(!edges.is_valid_iterator(alien_edges.begin()));
+  }
+
   sstl::forward_list<int, 8> list;
   sstl::forward_list<int, 3> donor;
   sstl::forward_list<int, 2> too_large;
@@ -494,7 +520,10 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
 
   SSTL_TEST_ASSERT(list.splice_after(list.before_begin(), donor));
   SSTL_TEST_ASSERT(donor.empty());
+  SSTL_TEST_ASSERT(!invalid_insert.try_splice_after(invalid_insert.before_begin(), too_large));
+#if SSTL_ON_ERROR == SSTL_RETURN
   SSTL_TEST_ASSERT(!invalid_insert.splice_after(invalid_insert.before_begin(), too_large));
+#endif
 
   {
     sstl::forward_list<int, 8> same_capacity_target;
@@ -504,6 +533,8 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
     SSTL_TEST_ASSERT(same_capacity_source.insert_after(same_capacity_source.before_begin(), 2) != same_capacity_source.end());
     SSTL_TEST_ASSERT(same_capacity_target.splice_after(same_capacity_target.before_begin(), same_capacity_source));
     SSTL_TEST_ASSERT(same_capacity_source.empty());
+    same_capacity_target.swap(same_capacity_target);
+    SSTL_TEST_EQ(same_capacity_target.size(), 3u);
   }
 
   /*
@@ -527,16 +558,22 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
     SSTL_TEST_ASSERT(full_same_capacity_target.insert_after(full_same_capacity_target.before_begin(), 2) != full_same_capacity_target.end());
     SSTL_TEST_ASSERT(full_same_capacity_target.insert_after(full_same_capacity_target.before_begin(), 1) != full_same_capacity_target.end());
     SSTL_TEST_ASSERT(same_capacity_source.insert_after(same_capacity_source.before_begin(), 3) != same_capacity_source.end());
+    SSTL_TEST_ASSERT(!full_same_capacity_target.try_splice_after(full_same_capacity_target.before_begin(), same_capacity_source));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!full_same_capacity_target.splice_after(full_same_capacity_target.before_begin(), same_capacity_source));
+#endif
     SSTL_TEST_EQ(same_capacity_source.size(), 1u);
   }
 
   {
     sstl::forward_list<int, 2> iterator_edges;
     SSTL_TEST_ASSERT(iterator_edges.insert_after(iterator_edges.before_begin(), 1) != iterator_edges.end());
+    SSTL_TEST_ASSERT(iterator_edges.insert_after(iterator_edges.begin(), 2) != iterator_edges.end());
     SSTL_TEST_ASSERT(iterator_edges.before_begin() != iterator_edges.end());
-    SSTL_TEST_ASSERT(iterator_edges.erase_after(iterator_edges.end()) == iterator_edges.end());
     sstl::forward_list<int, 2>::iterator tail = iterator_edges.begin();
+    SSTL_TEST_ASSERT(iterator_edges.erase_after(tail) == iterator_edges.end());
+    SSTL_TEST_EQ(iterator_edges.size(), 1u);
+    SSTL_TEST_ASSERT(iterator_edges.erase_after(iterator_edges.end()) == iterator_edges.end());
     SSTL_TEST_ASSERT(iterator_edges.erase_after(tail) == iterator_edges.end());
     sstl::forward_list<int, 2>::iterator mutable_end = iterator_edges.end();
     ++mutable_end;
@@ -591,8 +628,12 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
   SSTL_TEST_ASSERT(full.insert_after(full.before_begin(), 2) != full.end());
   SSTL_TEST_ASSERT(full.insert_after(full.before_begin(), 1) != full.end());
   SSTL_TEST_ASSERT(one.insert_after(one.before_begin(), 3) != one.end());
+  SSTL_TEST_ASSERT(!full.try_merge(one));
+  SSTL_TEST_ASSERT(!full.try_splice_after(full.before_begin(), one, one.before_begin()));
+#if SSTL_ON_ERROR == SSTL_RETURN
   SSTL_TEST_ASSERT(!full.merge(one));
   SSTL_TEST_ASSERT(!full.splice_after(full.before_begin(), one, one.before_begin()));
+#endif
   SSTL_TEST_ASSERT(full.splice_after(full.before_begin(), full));
 
   {
@@ -601,7 +642,10 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
     SSTL_TEST_ASSERT(same_merge_full_target.insert_after(same_merge_full_target.before_begin(), 2) != same_merge_full_target.end());
     SSTL_TEST_ASSERT(same_merge_full_target.insert_after(same_merge_full_target.before_begin(), 1) != same_merge_full_target.end());
     SSTL_TEST_ASSERT(same_merge_source.insert_after(same_merge_source.before_begin(), 3) != same_merge_source.end());
+    SSTL_TEST_ASSERT(!same_merge_full_target.try_merge(same_merge_source));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!same_merge_full_target.merge(same_merge_source));
+#endif
     SSTL_TEST_EQ(same_merge_source.size(), 1u);
   }
 
@@ -610,7 +654,10 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
     sstl::forward_list<int, 1> same_capacity_source;
     SSTL_TEST_ASSERT(full_target.insert_after(full_target.before_begin(), 1) != full_target.end());
     SSTL_TEST_ASSERT(same_capacity_source.insert_after(same_capacity_source.before_begin(), 2) != same_capacity_source.end());
+    SSTL_TEST_ASSERT(!full_target.try_splice_after(full_target.before_begin(), same_capacity_source, same_capacity_source.before_begin()));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!full_target.splice_after(full_target.before_begin(), same_capacity_source, same_capacity_source.before_begin()));
+#endif
   }
 
   {
@@ -631,15 +678,32 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
     }
     sstl::forward_list<int, 4> invalid_position_source;
     SSTL_TEST_ASSERT(invalid_position_source.insert_after(invalid_position_source.before_begin(), 9) != invalid_position_source.end());
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!single_target.splice_after(single_target.end(), invalid_position_source, invalid_position_source.before_begin()));
+    SSTL_TEST_ASSERT(!single_target.splice_after(single_target.before_begin(), invalid_position_source, invalid_position_source.begin()));
+#endif
+    SSTL_TEST_ASSERT(!single_target.try_splice_after(single_target.before_begin(), invalid_position_source, invalid_position_source.begin()));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!single_target.splice_after(single_target.end(), invalid_position_source));
+#endif
   }
 
   {
     sstl::forward_list<int, 4> templated_invalid_target;
     sstl::forward_list<int, 2> templated_invalid_source;
     SSTL_TEST_ASSERT(templated_invalid_source.insert_after(templated_invalid_source.before_begin(), 9) != templated_invalid_source.end());
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!templated_invalid_target.splice_after(templated_invalid_target.end(), templated_invalid_source));
+#endif
+    SSTL_TEST_ASSERT(!templated_invalid_target.try_splice_after(templated_invalid_target.end(), templated_invalid_source));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!templated_invalid_target.splice_after(templated_invalid_target.end(), templated_invalid_source, templated_invalid_source.before_begin()));
+#endif
     SSTL_TEST_EQ(templated_invalid_source.size(), 1u);
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!templated_invalid_target.splice_after(templated_invalid_target.before_begin(), templated_invalid_source, templated_invalid_source.begin()));
+#endif
+    SSTL_TEST_ASSERT(!templated_invalid_target.try_splice_after(templated_invalid_target.before_begin(), templated_invalid_source, templated_invalid_source.begin()));
   }
 
   {
@@ -655,7 +719,10 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
       expect_forward_list_values(templated_single_target, expected_target, 2u);
       expect_forward_list_values(templated_single_source, expected_source, 1u);
     }
-    SSTL_TEST_ASSERT(templated_single_target.splice_after(templated_single_target.before_begin(), templated_single_source, templated_single_source.end()));
+    SSTL_TEST_ASSERT(!templated_single_target.try_splice_after(templated_single_target.before_begin(), templated_single_source, templated_single_source.end()));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!templated_single_target.splice_after(templated_single_target.before_begin(), templated_single_source, templated_single_source.end()));
+#endif
     SSTL_TEST_EQ(templated_single_source.size(), 1u);
   }
 
@@ -670,7 +737,10 @@ static void forward_list_transfer_sort_and_failure_paths_are_exercised() {
       const int expected[] = {2, 1, 3};
       expect_forward_list_values(self_move, expected, 3u);
     }
-    SSTL_TEST_ASSERT(self_move.splice_after(self_move.before_begin(), self_move, self_move.end()));
+    SSTL_TEST_ASSERT(!self_move.try_splice_after(self_move.before_begin(), self_move, self_move.end()));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!self_move.splice_after(self_move.before_begin(), self_move, self_move.end()));
+#endif
   }
 
   {
@@ -777,8 +847,6 @@ static void map_insert_erase_rebalancing_and_capacity_edges_are_exercised() {
       one.insert(sstl::make_pair(2, 20));
     SSTL_TEST_ASSERT(!full.second);
     SSTL_TEST_ASSERT(full.first == one.end());
-    int& overflow = one[2];
-    overflow = 99;
     SSTL_TEST_EQ(one.size(), 1u);
     SSTL_TEST_ASSERT(one.find(2) == one.end());
     SSTL_TEST_EQ(one[1], 10);
@@ -974,8 +1042,10 @@ static void flat_and_hash_maps_exercise_direct_contracts() {
   {
     sstl::flat_map<int, int, 1> full_subscript;
     full_subscript[1] = 10;
-    int& overflow = full_subscript[2];
-    overflow = 99;
+    sstl::pair<sstl::flat_map<int, int, 1>::iterator, bool> full =
+      full_subscript.insert(sstl::make_pair(2, 20));
+    SSTL_TEST_ASSERT(!full.second);
+    SSTL_TEST_ASSERT(full.first == full_subscript.end());
     SSTL_TEST_EQ(full_subscript.size(), 1u);
     SSTL_TEST_ASSERT(full_subscript.find(2) == full_subscript.end());
     SSTL_TEST_EQ(full_subscript[1], 10);
@@ -995,6 +1065,10 @@ static void flat_and_hash_maps_exercise_direct_contracts() {
     sstl::flat_map<int, int, 3>::iterator mutable_before = mutable_post++;
     SSTL_TEST_EQ(mutable_before->first, 1);
     SSTL_TEST_EQ(mutable_post->first, 2);
+    SSTL_TEST_ASSERT(!(mutable_before == mutable_post));
+    sstl::flat_map<int, int, 3> other_flat_for_iterators;
+    SSTL_TEST_ASSERT(other_flat_for_iterators.insert(sstl::make_pair(1, 11)).second);
+    SSTL_TEST_ASSERT(!(mutable_before == other_flat_for_iterators.begin()));
   }
   flat.revalidate_iterators();
   sstl::flat_map<int, int, 3>::iterator old_begin = flat.begin();
@@ -1022,6 +1096,9 @@ static void flat_and_hash_maps_exercise_direct_contracts() {
     sstl::flat_map<int, int, 3>::const_iterator const_before = const_post++;
     SSTL_TEST_EQ(const_before->first, 1);
     SSTL_TEST_EQ(const_post->first, 2);
+    SSTL_TEST_ASSERT(!(const_before == const_post));
+    const sstl::flat_map<int, int, 3> other_const_flat_for_iterators;
+    SSTL_TEST_ASSERT(!(const_before == other_const_flat_for_iterators.begin()));
   }
   SSTL_TEST_ASSERT(const_flat.is_valid_iterator(const_flat.begin()));
   SSTL_TEST_ASSERT(const_flat.is_valid_iterator(const_flat.end()));
@@ -1035,6 +1112,8 @@ static void flat_and_hash_maps_exercise_direct_contracts() {
   SSTL_TEST_EQ(const_flat.lower_bound(0)->first, 1);
   SSTL_TEST_ASSERT(const_flat.upper_bound(3) == const_flat.end());
   SSTL_TEST_ASSERT(const_flat.equal_range(9).first == const_flat.end());
+  flat.swap(flat);
+  SSTL_TEST_EQ(flat.size(), 3u);
   SSTL_TEST_EQ(flat.erase(9), 0u);
 #if SSTL_ON_ERROR == SSTL_RETURN
   /*
@@ -1110,8 +1189,10 @@ static void flat_and_hash_maps_exercise_direct_contracts() {
   {
     sstl::unordered_map<int, int, 1, 3> full_subscript;
     full_subscript[1] = 10;
-    int& overflow = full_subscript[2];
-    overflow = 99;
+    sstl::pair<sstl::unordered_map<int, int, 1, 3>::iterator, bool> full =
+      full_subscript.insert(sstl::make_pair(2, 20));
+    SSTL_TEST_ASSERT(!full.second);
+    SSTL_TEST_ASSERT(full.first == full_subscript.end());
     SSTL_TEST_EQ(full_subscript.size(), 1u);
     SSTL_TEST_ASSERT(full_subscript.find(2) == full_subscript.end());
     SSTL_TEST_EQ(full_subscript[1], 10);
@@ -1185,7 +1266,9 @@ static void vector_and_deque_return_policy_edges_are_exercised() {
   SSTL_TEST_EQ(values.front(), 3);
   SSTL_TEST_EQ(values.back(), 2);
   SSTL_TEST_ASSERT(values.insert(values.begin(), 9) == values.end());
+#if SSTL_ON_ERROR == SSTL_RETURN
   SSTL_TEST_ASSERT(values.erase(values.end()) == values.end());
+#endif
   SSTL_TEST_ASSERT(values.try_pop_back(0));
   {
     sstl::vector<int, 4> inserts;
@@ -1211,6 +1294,9 @@ static void vector_and_deque_return_policy_edges_are_exercised() {
     SSTL_TEST_EQ(inserts[0], 1);
     SSTL_TEST_EQ(inserts[1], 4);
     SSTL_TEST_ASSERT(inserts.erase(inserts.begin(), inserts.begin()) == inserts.begin());
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(inserts.erase(inserts.end(), inserts.begin()) == inserts.end());
+#endif
   }
   {
     sstl::vector<int, 4> resized;
@@ -1351,6 +1437,7 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
     overloads that are distinct template instantiations.
   */
   sstl::list<int, 2> small;
+  small = small;
   SSTL_TEST_ASSERT(!small.try_pop_front(0));
   SSTL_TEST_ASSERT(!small.try_pop_back(0));
   SSTL_TEST_ASSERT(small.erase(small.end()) == small.end());
@@ -1370,6 +1457,18 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
     sstl::list<int, 2>::iterator mutable_before_end = small.end();
     --mutable_before_end;
     SSTL_TEST_ASSERT(mutable_before_end == small.end());
+    SSTL_TEST_ASSERT(small.push_back(10));
+    SSTL_TEST_ASSERT(small.push_back(11));
+    sstl::list<int, 2>::iterator mutable_tail = small.end();
+    --mutable_tail;
+    SSTL_TEST_EQ(*mutable_tail, 11);
+    sstl::list<int, 2>::iterator mutable_before_tail = mutable_tail;
+    --mutable_before_tail;
+    SSTL_TEST_EQ(*mutable_before_tail, 10);
+    sstl::list<int, 2> alien_small;
+    SSTL_TEST_ASSERT(alien_small.push_back(99));
+    SSTL_TEST_ASSERT(!small.is_valid_iterator(alien_small.begin()));
+    small.clear();
     const sstl::list<int, 2>& const_small = small;
     sstl::list<int, 2>::const_iterator const_end = const_small.end();
     ++const_end;
@@ -1390,6 +1489,7 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
   {
     sstl::list<int, 8> empty_same_source;
     SSTL_TEST_ASSERT(same_dst.splice(same_dst.end(), empty_same_source));
+    SSTL_TEST_ASSERT(!same_dst.try_splice(empty_same_source.begin(), empty_same_source));
   }
   {
     sstl::list<int, 2> full_same_target;
@@ -1397,9 +1497,14 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
     SSTL_TEST_ASSERT(full_same_target.push_back(1));
     SSTL_TEST_ASSERT(full_same_target.push_back(2));
     SSTL_TEST_ASSERT(same_capacity_source.push_back(3));
+    SSTL_TEST_ASSERT(!full_same_target.try_splice(full_same_target.end(), same_capacity_source));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!full_same_target.splice(full_same_target.end(), same_capacity_source));
+#endif
     SSTL_TEST_EQ(same_capacity_source.size(), 1u);
   }
+  same_dst.swap(same_dst);
+  SSTL_TEST_EQ(same_dst.size(), 3u);
 
   sstl::list<int, 8> templated_dst;
   sstl::list<int, 2> templated_src;
@@ -1417,8 +1522,16 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
     sstl::list<int, 2> templated_capacity_source;
     SSTL_TEST_ASSERT(full_templated_target.push_back(1));
     SSTL_TEST_ASSERT(templated_capacity_source.push_back(2));
+    SSTL_TEST_ASSERT(!full_templated_target.try_splice(full_templated_target.end(), templated_capacity_source));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!full_templated_target.splice(full_templated_target.end(), templated_capacity_source));
+#endif
     SSTL_TEST_EQ(templated_capacity_source.size(), 1u);
+    sstl::list<int, 1> alien_templated_target;
+    SSTL_TEST_ASSERT(alien_templated_target.push_back(8));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!full_templated_target.splice(alien_templated_target.begin(), templated_capacity_source));
+#endif
   }
 
   {
@@ -1437,6 +1550,8 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
       const int expected[] = {1, 2, 3, 4, 5};
       expect_list_values(range_dst, expected, 5u);
     }
+    SSTL_TEST_ASSERT(range_dst.splice(range_dst.end(), range_dst, range_dst.begin(), range_dst.begin()));
+    SSTL_TEST_ASSERT(!range_dst.try_splice(range_src.begin(), range_dst, range_dst.begin(), range_dst.end()));
   }
 
   {
@@ -1538,6 +1653,10 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
       const int expected[] = {1, 6, 7, 8};
       expect_list_values(templated_range_dst, expected, 4u);
     }
+    SSTL_TEST_ASSERT(templated_range_dst.splice(templated_range_dst.end(),
+                                               templated_range_src,
+                                               templated_range_src.begin(),
+                                               templated_range_src.begin()));
   }
 
   {
@@ -1547,10 +1666,16 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
     SSTL_TEST_ASSERT(full_range_target.push_back(2));
     SSTL_TEST_ASSERT(range_capacity_source.push_back(3));
     SSTL_TEST_ASSERT(range_capacity_source.push_back(4));
+    SSTL_TEST_ASSERT(!full_range_target.try_splice(full_range_target.end(),
+                                                   range_capacity_source,
+                                                   range_capacity_source.begin(),
+                                                   range_capacity_source.end()));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!full_range_target.splice(full_range_target.end(),
                                                range_capacity_source,
                                                range_capacity_source.begin(),
                                                range_capacity_source.end()));
+#endif
     SSTL_TEST_EQ(range_capacity_source.size(), 2u);
   }
 
@@ -1602,6 +1727,18 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
   SSTL_TEST_ASSERT(cross_single_src.push_back(7));
   SSTL_TEST_ASSERT(cross_single_dst.splice(cross_single_dst.end(), cross_single_src, cross_single_src.begin()));
   SSTL_TEST_ASSERT(cross_single_src.empty());
+  {
+    sstl::list<int, 4> invalid_single_dst;
+    sstl::list<int, 4> alien_invalid_single_dst;
+    sstl::list<int, 2> invalid_single_src;
+    SSTL_TEST_ASSERT(alien_invalid_single_dst.push_back(4));
+    SSTL_TEST_ASSERT(invalid_single_src.push_back(5));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!invalid_single_dst.splice(alien_invalid_single_dst.begin(), invalid_single_src, invalid_single_src.begin()));
+#endif
+    SSTL_TEST_ASSERT(!invalid_single_dst.try_splice(alien_invalid_single_dst.begin(), invalid_single_src, invalid_single_src.begin()));
+    SSTL_TEST_ASSERT(invalid_single_dst.splice(invalid_single_dst.end(), invalid_single_src, invalid_single_src.end()));
+  }
 
   {
     sstl::list<int, 4> templated_single_end_target;
@@ -1611,7 +1748,10 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
     sstl::list<int, 2> templated_single_source;
     SSTL_TEST_ASSERT(full_templated_single_target.push_back(1));
     SSTL_TEST_ASSERT(templated_single_source.push_back(2));
+    SSTL_TEST_ASSERT(!full_templated_single_target.try_splice(full_templated_single_target.end(), templated_single_source, templated_single_source.begin()));
+#if SSTL_ON_ERROR == SSTL_RETURN
     SSTL_TEST_ASSERT(!full_templated_single_target.splice(full_templated_single_target.end(), templated_single_source, templated_single_source.begin()));
+#endif
     SSTL_TEST_EQ(templated_single_source.size(), 1u);
   }
 
@@ -1619,9 +1759,14 @@ static void list_splice_merge_sort_and_empty_edges_are_exercised() {
   sstl::list<int, 1> one;
   SSTL_TEST_ASSERT(full.push_back(1));
   SSTL_TEST_ASSERT(one.push_back(2));
+  SSTL_TEST_ASSERT(!full.try_splice(full.end(), one));
+  SSTL_TEST_ASSERT(!full.try_splice(full.end(), one, one.begin()));
+  SSTL_TEST_ASSERT(!full.try_merge(one));
+#if SSTL_ON_ERROR == SSTL_RETURN
   SSTL_TEST_ASSERT(!full.splice(full.end(), one));
   SSTL_TEST_ASSERT(!full.splice(full.end(), one, one.begin()));
   SSTL_TEST_ASSERT(!full.merge(one));
+#endif
 
   sstl::list<int, 8> unsorted;
   SSTL_TEST_ASSERT(unsorted.push_back(4));
@@ -1975,6 +2120,16 @@ static void small_utility_headers_get_edge_branch_exercise() {
   SSTL_TEST_ASSERT(lor(true, false));
   SSTL_TEST_ASSERT(!lor(false, false));
 
+  sstl::pair<int, int> pair_value = sstl::make_pair(1, 2);
+  sstl::pair<int, int> pair_same = sstl::make_pair(1, 2);
+  sstl::pair<int, int> pair_first_diff = sstl::make_pair(0, 2);
+  sstl::pair<int, int> pair_second_diff = sstl::make_pair(1, 3);
+  SSTL_TEST_ASSERT(pair_value == pair_same);
+  SSTL_TEST_ASSERT(!(pair_value == pair_first_diff));
+  SSTL_TEST_ASSERT(!(pair_value == pair_second_diff));
+  SSTL_TEST_ASSERT(pair_value != pair_first_diff);
+  SSTL_TEST_ASSERT(pair_value != pair_second_diff);
+
   sstl::optional<int> empty_optional;
   sstl::optional<int> empty_copy_source;
   sstl::optional<int> copied_empty_optional(empty_copy_source);
@@ -2027,9 +2182,11 @@ static void small_utility_headers_get_edge_branch_exercise() {
   {
     mutable_nullary zero_source;
     sstl::function0<int> mutable_zero(zero_source);
+    sstl::function0<int> mutable_zero_copy(mutable_zero);
     const sstl::function0<int>& const_mutable_zero = mutable_zero;
     SSTL_TEST_EQ(const_mutable_zero(), 1);
     SSTL_TEST_EQ(const_mutable_zero(), 2);
+    SSTL_TEST_EQ(mutable_zero_copy(), 1);
 
     mutable_unary one_source;
     sstl::function1<int, int> mutable_one(one_source);
@@ -2087,6 +2244,20 @@ static void small_utility_headers_get_edge_branch_exercise() {
   SSTL_TEST_ASSERT(!inverted.test(1));
   bits <<= 8u;
   SSTL_TEST_ASSERT(bits.none());
+  bits.set(2).set(4);
+  bits >>= 8u;
+  SSTL_TEST_ASSERT(bits.none());
+  sstl::bitset<8> from_ulong(5ul);
+  SSTL_TEST_EQ(from_ulong.to_ulong(), 5ul);
+  SSTL_TEST_ASSERT(from_ulong != inverted);
+  sstl::bitset<8> null_text(static_cast<const char*>(0));
+  SSTL_TEST_ASSERT(null_text.none());
+  sstl::bitset<8> text_bits("1010");
+  SSTL_TEST_ASSERT(text_bits.test(1));
+  SSTL_TEST_ASSERT(!text_bits.test(2));
+  sstl::bitset<70> wide_bits;
+  wide_bits.set(65);
+  (void)wide_bits.to_ulong();
 
   sstl::priority_queue<int, 2> heap;
   heap.pop();
@@ -2125,6 +2296,12 @@ static void small_utility_headers_get_edge_branch_exercise() {
   SSTL_TEST_ASSERT(sstl::get_if<0>(&v2) != 0);
   SSTL_TEST_ASSERT(sstl::get_if<1>(&v2) == 0);
   SSTL_TEST_ASSERT(sstl::get_if<0>(static_cast<sstl::variant2<int, char>*>(0)) == 0);
+  sstl::variant3<int, char, long> v3(3);
+  SSTL_TEST_EQ(v3.get0(), 3);
+  v3 = static_cast<char>(4);
+  SSTL_TEST_EQ(v3.get1(), static_cast<char>(4));
+  v3 = static_cast<long>(5);
+  SSTL_TEST_EQ(v3.get2(), static_cast<long>(5));
 
   int visited = 0;
   sstl::variant4<int, char, long, short> v4(1);
@@ -2141,6 +2318,844 @@ static void small_utility_headers_get_edge_branch_exercise() {
   v4.visit(variant_visit_sum(&visited));
   SSTL_TEST_EQ(visited, 10);
   SSTL_TEST_ASSERT(sstl::holds_alternative<short>(v4));
+}
+
+static void remaining_return_policy_edges_are_exercised() {
+  sstl_test::noalloc_guard guard;
+
+  {
+    int raw[2] = {10, 20};
+    sstl::span<int> one(raw, 1u);
+    SSTL_TEST_EQ(one[0], 10);
+    SSTL_TEST_ASSERT(one.try_front() != 0);
+    sstl::span<int> empty_span;
+    SSTL_TEST_ASSERT(empty_span.try_front() == 0);
+  }
+
+  {
+    sstl::string<8> overlap("abcd");
+    SSTL_TEST_ASSERT(overlap.append(overlap.c_str() + 1, 2u));
+    SSTL_TEST_ASSERT(overlap == "abcdbc");
+    SSTL_TEST_ASSERT(!overlap.try_append("xyz", 3u));
+    SSTL_TEST_ASSERT(!overlap.append(3u, 'z'));
+
+    sstl::string<4> assign_source("ab");
+    sstl::string<4> assigned;
+    SSTL_TEST_ASSERT(!assigned.assign(assign_source, 3u));
+    SSTL_TEST_ASSERT(assigned.assign(assign_source, 1u));
+    SSTL_TEST_ASSERT(assigned == "b");
+    SSTL_TEST_ASSERT(assigned.assign(assign_source, 1u, 0u));
+    SSTL_TEST_ASSERT(assigned.empty());
+    SSTL_TEST_ASSERT(!assigned.try_assign("abcde", 5u));
+
+    sstl::string<6> inserted("ab");
+    SSTL_TEST_ASSERT(!inserted.try_insert(99u, 'x'));
+    SSTL_TEST_ASSERT(inserted.insert(1u, "", 0u));
+    SSTL_TEST_ASSERT(inserted.insert(1u, 0u, 'x'));
+    SSTL_TEST_ASSERT(!inserted.insert(9u, 0u, 'x'));
+    SSTL_TEST_ASSERT(!inserted.insert(0u, 8u, 'x'));
+    SSTL_TEST_ASSERT(!inserted.insert(0u, assign_source, 9u));
+    SSTL_TEST_ASSERT(inserted.insert(1u, assign_source, 1u, 20u));
+    SSTL_TEST_ASSERT(inserted == "abb");
+    SSTL_TEST_ASSERT(!inserted.try_insert(0u, "abcdef"));
+
+    sstl::string<6> replaced("abcd");
+    SSTL_TEST_ASSERT(replaced.replace(1u, 2u, replaced.c_str(), 2u));
+    SSTL_TEST_ASSERT(replaced == "aabd");
+    SSTL_TEST_ASSERT(replaced.try_replace(1u, 99u, ""));
+    SSTL_TEST_ASSERT(replaced == "a");
+    SSTL_TEST_ASSERT(!replaced.try_replace(9u, 1u, "x"));
+    SSTL_TEST_ASSERT(!replaced.try_replace(0u, 0u, "abcdefg"));
+    SSTL_TEST_ASSERT(replaced.assign(static_cast<const char*>(0), 0u));
+
+    sstl::string<5> searched("ababa");
+    SSTL_TEST_EQ(searched.find("aba", 1u), 2u);
+    SSTL_TEST_EQ(searched.find("aba", 3u), sstl::npos);
+    SSTL_TEST_EQ(searched.find("aba", 0u, 0u), 0u);
+    SSTL_TEST_EQ(searched.find("aba", 9u, 1u), sstl::npos);
+    SSTL_TEST_EQ(searched.find("ab", 4u, 2u), sstl::npos);
+    SSTL_TEST_EQ(searched.find("ba", 0u, 2u), 1u);
+    SSTL_TEST_EQ(searched.find('a', 5u), sstl::npos);
+    SSTL_TEST_EQ(searched.find_last_of("ba", 3u), 3u);
+    SSTL_TEST_EQ(searched.find_last_of("z", 3u), sstl::npos);
+    SSTL_TEST_EQ(searched.find_last_not_of("a", 4u), 3u);
+    SSTL_TEST_EQ(searched.find_last_not_of("ab", 4u), sstl::npos);
+    SSTL_TEST_EQ(searched.rfind(static_cast<const char*>(0)), sstl::npos);
+    SSTL_TEST_EQ(searched.rfind("", 99u), searched.size());
+    SSTL_TEST_EQ(searched.rfind("ba", 2u), 1u);
+    SSTL_TEST_EQ(searched.rfind('b', 2u), 1u);
+    SSTL_TEST_EQ(searched.rfind('z'), sstl::npos);
+  }
+
+  {
+    sstl::string_view view("ababa", 5u);
+    SSTL_TEST_ASSERT(view.try_at(0u) != 0);
+    SSTL_TEST_ASSERT(view.try_front() != 0);
+    SSTL_TEST_ASSERT(view.try_back() != 0);
+    char copied[4] = {0, 0, 0, 0};
+    SSTL_TEST_EQ(view.copy(copied, 3u, 1u), 3u);
+    SSTL_TEST_EQ(copied[0], 'b');
+    SSTL_TEST_EQ(view.copy(0, 1u), 0u);
+    SSTL_TEST_EQ(view.copy(copied, 1u, 9u), 0u);
+    SSTL_TEST_ASSERT(view.substr(9u).empty());
+    SSTL_TEST_EQ(view.substr(1u, 99u).size(), 4u);
+    SSTL_TEST_EQ(view.find("ba", 0u, 2u), 1u);
+    SSTL_TEST_EQ(view.find("ba", 5u, 2u), sstl::npos);
+    SSTL_TEST_EQ(view.find("ba", 0u, 0u), 0u);
+    SSTL_TEST_EQ(view.find(static_cast<const char*>(0), 0u, 0u), sstl::npos);
+    SSTL_TEST_EQ(view.rfind(static_cast<const char*>(0)), sstl::npos);
+    SSTL_TEST_EQ(view.rfind('b'), 3u);
+    SSTL_TEST_EQ(view.rfind('z'), sstl::npos);
+    SSTL_TEST_EQ(view.rfind(0), sstl::npos);
+    SSTL_TEST_EQ(view.rfind(static_cast<int>('b')), 3u);
+    SSTL_TEST_EQ(view.find_last_of("ba", 3u), 3u);
+    SSTL_TEST_EQ(view.find_last_of("z", 3u), sstl::npos);
+    SSTL_TEST_EQ(view.find_last_not_of("a", 4u), 3u);
+    SSTL_TEST_EQ(view.find_last_not_of("ab", 4u), sstl::npos);
+    SSTL_TEST_ASSERT(view.compare(sstl::string_view("ababa", 5u)) == 0);
+    SSTL_TEST_ASSERT(view.compare(sstl::string_view("ababb", 5u)) < 0);
+    SSTL_TEST_ASSERT(view.compare(sstl::string_view("abab", 4u)) > 0);
+    SSTL_TEST_ASSERT(view.starts_with('a'));
+    SSTL_TEST_ASSERT(!view.starts_with('z'));
+    SSTL_TEST_ASSERT(view.ends_with('a'));
+    SSTL_TEST_ASSERT(!view.ends_with('z'));
+
+    sstl::string_view null_empty(static_cast<const char*>(0), 0u);
+    SSTL_TEST_ASSERT(null_empty.begin() == null_empty.end());
+    SSTL_TEST_ASSERT(null_empty.cbegin() == null_empty.cend());
+    SSTL_TEST_ASSERT(null_empty.try_at(0u) == 0);
+    SSTL_TEST_ASSERT(null_empty.try_front() == 0);
+    SSTL_TEST_ASSERT(null_empty.try_back() == 0);
+    SSTL_TEST_ASSERT(!null_empty.starts_with('a'));
+    SSTL_TEST_ASSERT(null_empty.ends_with(""));
+    SSTL_TEST_ASSERT(null_empty.ends_with(sstl::string_view()));
+    null_empty.remove_prefix(1u);
+
+    sstl::string_view null_sized(static_cast<const char*>(0), 1u);
+    SSTL_TEST_ASSERT(null_sized.try_at(0u) == 0);
+    SSTL_TEST_ASSERT(null_sized.try_front() == 0);
+    SSTL_TEST_ASSERT(null_sized.try_back() == 0);
+    SSTL_TEST_ASSERT(null_sized.end() == null_sized.begin());
+    SSTL_TEST_ASSERT(null_sized.cend() == null_sized.cbegin());
+  }
+
+  {
+    sstl::optional<int> self_swap(1);
+    self_swap.swap(self_swap);
+    SSTL_TEST_EQ(self_swap.value(), 1);
+    sstl::optional<int> left(2);
+    sstl::optional<int> right(3);
+    left.swap(right);
+    SSTL_TEST_EQ(left.value(), 3);
+    SSTL_TEST_EQ(right.value(), 2);
+    sstl::optional<int> empty;
+    left.swap(empty);
+    SSTL_TEST_ASSERT(left == sstl::nullopt);
+    SSTL_TEST_EQ(empty.value(), 3);
+    right.reset();
+    right.swap(empty);
+    SSTL_TEST_EQ(right.value(), 3);
+    SSTL_TEST_ASSERT(empty == sstl::nullopt);
+    SSTL_TEST_ASSERT(sstl::optional<int>() < sstl::optional<int>(1));
+    SSTL_TEST_ASSERT(!(sstl::optional<int>(1) < sstl::optional<int>()));
+    SSTL_TEST_ASSERT(sstl::optional<int>(1) < sstl::optional<int>(2));
+    SSTL_TEST_ASSERT(sstl::optional<int>() < 1);
+    SSTL_TEST_ASSERT(!(sstl::optional<int>(2) < 1));
+    SSTL_TEST_ASSERT(1 < sstl::optional<int>(2));
+    SSTL_TEST_ASSERT(!(1 < sstl::optional<int>()));
+  }
+
+  {
+    int heap_values[] = {1, 4, 3};
+    sstl::priority_queue<int, 2> limited(heap_values, heap_values + 3);
+    SSTL_TEST_EQ(limited.size(), 2u);
+    SSTL_TEST_ASSERT(!limited.try_push(9));
+    int popped = 0;
+    SSTL_TEST_ASSERT(limited.try_pop(&popped));
+    SSTL_TEST_ASSERT(popped == 4 || popped == 3);
+    SSTL_TEST_ASSERT(limited.try_pop(0));
+    SSTL_TEST_ASSERT(!limited.try_pop(0));
+    SSTL_TEST_ASSERT(limited.try_top() == 0);
+    const sstl::priority_queue<int, 2>& const_limited = limited;
+    SSTL_TEST_ASSERT(const_limited.try_top() == 0);
+
+    sstl::vector<int, 2> one_value;
+    SSTL_TEST_ASSERT(one_value.push_back(7));
+    sstl::priority_queue<int, 2> from_one(sstl::less<int>(), one_value);
+    SSTL_TEST_EQ(from_one.top(), 7);
+    sstl::priority_queue<int, 3, sstl::vector<int, 3>, greater_int> min_heap((greater_int()));
+    SSTL_TEST_ASSERT(min_heap.push(3));
+    SSTL_TEST_ASSERT(min_heap.push(1));
+    SSTL_TEST_EQ(min_heap.top(), 1);
+  }
+
+  {
+    sstl::map<int, int, 2> ordered;
+    SSTL_TEST_ASSERT(ordered.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_EQ(ordered.at(1), 10);
+    SSTL_TEST_ASSERT(ordered.try_at(2) == 0);
+    const sstl::map<int, int, 2>& const_ordered = ordered;
+    SSTL_TEST_ASSERT(const_ordered.try_at(2) == 0);
+    SSTL_TEST_EQ(ordered[1], 10);
+    SSTL_TEST_ASSERT(ordered.erase(ordered.end(), ordered.begin()) == ordered.end());
+
+    sstl::flat_map<int, int, 2> flat;
+    SSTL_TEST_ASSERT(flat.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_EQ(flat.count(2), 0u);
+    SSTL_TEST_ASSERT(flat.try_at(2) == 0);
+    const sstl::flat_map<int, int, 2>& const_flat = flat;
+    SSTL_TEST_ASSERT(const_flat.try_at(2) == 0);
+    SSTL_TEST_ASSERT(flat.erase(flat.end(), flat.begin()) == flat.end());
+  }
+
+  {
+    sstl::unordered_map<int, int, 2, 3> hashed;
+    SSTL_TEST_ASSERT(hashed.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_EQ(hashed.count(2), 0u);
+    SSTL_TEST_ASSERT(hashed.equal_range(2).first == hashed.end());
+    SSTL_TEST_EQ(hashed[1], 10);
+    SSTL_TEST_ASSERT(hashed.try_at(2) == 0);
+    const sstl::unordered_map<int, int, 2, 3>& const_hashed = hashed;
+    SSTL_TEST_ASSERT(const_hashed.try_at(2) == 0);
+    SSTL_TEST_ASSERT(const_hashed.equal_range(2).first == const_hashed.end());
+    SSTL_TEST_EQ(hashed.bucket_size(99u), 0u);
+    sstl::unordered_map<int, int, 2, 3>::size_type empty_bucket = hashed.bucket_count();
+    for (sstl::unordered_map<int, int, 2, 3>::size_type bucket = 0; bucket < hashed.bucket_count(); ++bucket) {
+      if (hashed.bucket_size(bucket) == 0u) {
+        empty_bucket = bucket;
+        break;
+      }
+    }
+    SSTL_TEST_ASSERT(empty_bucket != hashed.bucket_count());
+    SSTL_TEST_ASSERT(hashed.begin(empty_bucket) == hashed.end(empty_bucket));
+    SSTL_TEST_ASSERT(hashed.begin(99u) == hashed.end(99u));
+    SSTL_TEST_ASSERT(const_hashed.begin(empty_bucket) == const_hashed.end(empty_bucket));
+    SSTL_TEST_ASSERT(hashed.erase(hashed.end(), hashed.begin()) == hashed.end());
+    hashed.swap(hashed);
+    SSTL_TEST_EQ(hashed.size(), 1u);
+
+    sstl::unordered_map<int, int, 2, 3> same_size_different_value;
+    SSTL_TEST_ASSERT(same_size_different_value.insert(sstl::make_pair(1, 99)).second);
+    SSTL_TEST_ASSERT(hashed != same_size_different_value);
+    sstl::unordered_map<int, int, 1, 3> empty_different_size;
+    SSTL_TEST_ASSERT(hashed != empty_different_size);
+  }
+
+  {
+    sstl::vector<int, 3> vector_edges;
+    SSTL_TEST_ASSERT(vector_edges.push_back(1));
+    SSTL_TEST_ASSERT(vector_edges.try_insert(vector_edges.begin(), 0u, 5) == vector_edges.begin());
+    int empty_range[1] = {0};
+    SSTL_TEST_ASSERT(vector_edges.try_insert(vector_edges.begin(), empty_range, empty_range) == vector_edges.begin());
+    SSTL_TEST_ASSERT(vector_edges.try_insert(vector_edges.end() + 1, 1u, 5) == vector_edges.end());
+    SSTL_TEST_ASSERT(vector_edges.erase(vector_edges.end(), vector_edges.begin()) == vector_edges.end());
+
+    sstl::deque<int, 3> deque_edges;
+    SSTL_TEST_ASSERT(deque_edges.push_back(1));
+    SSTL_TEST_ASSERT(deque_edges.push_back(2));
+    SSTL_TEST_ASSERT(deque_edges.try_insert(deque_edges.begin(), 0u, 5) == deque_edges.begin());
+    SSTL_TEST_ASSERT(deque_edges.insert(deque_edges.begin(), 0u, 5) == deque_edges.begin());
+    SSTL_TEST_ASSERT(deque_edges.try_insert(deque_edges.begin(), empty_range, empty_range) == deque_edges.begin());
+    SSTL_TEST_ASSERT(deque_edges.insert(deque_edges.begin(), empty_range, empty_range) == deque_edges.begin());
+    SSTL_TEST_ASSERT(deque_edges.insert(deque_edges.begin() + 1, 9) != deque_edges.end());
+    SSTL_TEST_ASSERT(!deque_edges.try_push_front(0));
+    SSTL_TEST_ASSERT(deque_edges.try_insert(deque_edges.begin(), 1u, 5) == deque_edges.end());
+    SSTL_TEST_ASSERT(deque_edges.try_insert(deque_edges.begin(), empty_range, empty_range + 1) == deque_edges.end());
+    SSTL_TEST_ASSERT(deque_edges.erase(deque_edges.end(), deque_edges.begin()) == deque_edges.end());
+
+    sstl::deque<int, 2> lhs;
+    sstl::deque<int, 3> rhs;
+    SSTL_TEST_ASSERT(lhs.push_back(1));
+    SSTL_TEST_ASSERT(rhs.push_back(1));
+    SSTL_TEST_ASSERT(rhs.push_back(2));
+    SSTL_TEST_ASSERT(!(lhs == rhs));
+    SSTL_TEST_ASSERT(lhs < rhs);
+    SSTL_TEST_ASSERT(!(rhs < lhs));
+    sstl::deque<int, 2> lex_left;
+    sstl::deque<int, 2> lex_right;
+    SSTL_TEST_ASSERT(lex_left.push_back(2));
+    SSTL_TEST_ASSERT(lex_right.push_back(1));
+    SSTL_TEST_ASSERT(!(lex_left < lex_right));
+  }
+}
+
+static void remaining_list_transfer_edges_are_exercised() {
+  sstl_test::noalloc_guard guard;
+
+  {
+    sstl::forward_list<int, 5> dst;
+    sstl::forward_list<int, 5> src;
+    SSTL_TEST_ASSERT(dst.insert_after(dst.before_begin(), 1) != dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 3) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 2) != src.end());
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src));
+    SSTL_TEST_ASSERT(src.empty());
+    SSTL_TEST_EQ(dst.size(), 3u);
+  }
+
+  {
+    sstl::forward_list<int, 3> dst;
+    sstl::forward_list<int, 1> empty_src;
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), empty_src));
+    sstl::forward_list<int, 1> one_src;
+    SSTL_TEST_ASSERT(one_src.insert_after(one_src.before_begin(), 7) != one_src.end());
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), one_src));
+    SSTL_TEST_ASSERT(one_src.empty());
+
+    sstl::forward_list<int, 1> full_cross;
+    sstl::forward_list<int, 2> cross_src;
+    SSTL_TEST_ASSERT(full_cross.insert_after(full_cross.before_begin(), 1) != full_cross.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 3) != cross_src.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 2) != cross_src.end());
+    SSTL_TEST_ASSERT(!full_cross.try_splice_after(full_cross.before_begin(), cross_src));
+  }
+
+  {
+    sstl::forward_list<int, 4> dst;
+    sstl::forward_list<int, 4> src;
+    SSTL_TEST_ASSERT(dst.insert_after(dst.before_begin(), 0) != dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 3) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 2) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 1) != src.end());
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src, src.before_begin()));
+    SSTL_TEST_EQ(dst.size(), 2u);
+    SSTL_TEST_EQ(src.size(), 2u);
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src, src.begin()));
+    SSTL_TEST_EQ(dst.size(), 3u);
+    SSTL_TEST_EQ(src.size(), 1u);
+    SSTL_TEST_ASSERT(!dst.try_splice_after(dst.end(), src, src.before_begin()));
+    SSTL_TEST_ASSERT(!dst.try_splice_after(dst.before_begin(), src, src.end()));
+  }
+
+  {
+    sstl::forward_list<int, 1> full_dst;
+    sstl::forward_list<int, 1> src;
+    SSTL_TEST_ASSERT(full_dst.insert_after(full_dst.before_begin(), 1) != full_dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 2) != src.end());
+    SSTL_TEST_ASSERT(!full_dst.try_splice_after(full_dst.before_begin(), src, src.before_begin()));
+  }
+
+  {
+    sstl::forward_list<int, 4> self;
+    SSTL_TEST_ASSERT(self.insert_after(self.before_begin(), 3) != self.end());
+    SSTL_TEST_ASSERT(self.insert_after(self.before_begin(), 2) != self.end());
+    SSTL_TEST_ASSERT(self.insert_after(self.before_begin(), 1) != self.end());
+    SSTL_TEST_ASSERT(self.try_splice_after(self.begin(), self, self.before_begin()));
+    SSTL_TEST_ASSERT(self.try_splice_after(self.before_begin(), self, self.begin()));
+    sstl::forward_list<int, 4>::iterator tail = self.begin();
+    ++tail;
+    ++tail;
+    SSTL_TEST_ASSERT(self.try_splice_after(tail, self, self.before_begin()));
+    SSTL_TEST_EQ(self.size(), 3u);
+  }
+
+  {
+    sstl::forward_list<int, 6> dst;
+    sstl::forward_list<int, 6> src;
+    SSTL_TEST_ASSERT(dst.insert_after(dst.before_begin(), 0) != dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 4) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 3) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 2) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 1) != src.end());
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src, src.before_begin(), src.begin()));
+    SSTL_TEST_EQ(dst.size(), 1u);
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src, src.before_begin(), src.end()));
+    SSTL_TEST_EQ(src.size(), 0u);
+    sstl::forward_list<int, 6> invalid_range_src;
+    SSTL_TEST_ASSERT(invalid_range_src.insert_after(invalid_range_src.before_begin(), 1) != invalid_range_src.end());
+    SSTL_TEST_ASSERT(!dst.try_splice_after(dst.before_begin(), invalid_range_src,
+                                           invalid_range_src.before_begin(),
+                                           invalid_range_src.before_begin()));
+  }
+
+  {
+    sstl::forward_list<int, 2> full_dst;
+    sstl::forward_list<int, 4> src;
+    SSTL_TEST_ASSERT(full_dst.insert_after(full_dst.before_begin(), 2) != full_dst.end());
+    SSTL_TEST_ASSERT(full_dst.insert_after(full_dst.before_begin(), 1) != full_dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 4) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 3) != src.end());
+    SSTL_TEST_ASSERT(!full_dst.try_splice_after(full_dst.before_begin(), src, src.before_begin(), src.end()));
+    SSTL_TEST_ASSERT(full_dst.splice_after(full_dst.before_begin(), src, src.before_begin(), src.begin()));
+  }
+
+  {
+    sstl::forward_list<int, 5> dst;
+    sstl::forward_list<int, 2> src;
+    SSTL_TEST_ASSERT(dst.insert_after(dst.before_begin(), 0) != dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 2) != src.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 1) != src.end());
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src, src.before_begin(), src.begin()));
+    SSTL_TEST_EQ(dst.size(), 1u);
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), src, src.before_begin(), src.end()));
+    SSTL_TEST_ASSERT(src.empty());
+  }
+
+  {
+    sstl::list<int, 5> dst;
+    sstl::list<int, 5> src;
+    SSTL_TEST_ASSERT(dst.push_back(1));
+    SSTL_TEST_ASSERT(src.push_back(2));
+    SSTL_TEST_ASSERT(src.push_back(3));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src));
+    SSTL_TEST_ASSERT(src.empty());
+    SSTL_TEST_EQ(dst.size(), 3u);
+  }
+
+  {
+    sstl::list<int, 3> dst;
+    sstl::list<int, 1> empty_src;
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), empty_src));
+    sstl::list<int, 1> one_src;
+    SSTL_TEST_ASSERT(one_src.push_back(4));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), one_src));
+    SSTL_TEST_ASSERT(one_src.empty());
+
+    sstl::list<int, 1> full_dst;
+    sstl::list<int, 2> src;
+    SSTL_TEST_ASSERT(full_dst.push_back(1));
+    SSTL_TEST_ASSERT(src.push_back(2));
+    SSTL_TEST_ASSERT(src.push_back(3));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(full_dst.end(), src));
+  }
+
+  {
+    sstl::list<int, 4> dst;
+    sstl::list<int, 4> src;
+    SSTL_TEST_ASSERT(dst.push_back(0));
+    SSTL_TEST_ASSERT(src.push_back(1));
+    SSTL_TEST_ASSERT(src.push_back(2));
+    SSTL_TEST_ASSERT(src.push_back(3));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.end()));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.begin()));
+    SSTL_TEST_EQ(dst.size(), 2u);
+    SSTL_TEST_EQ(src.size(), 2u);
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.begin()));
+    SSTL_TEST_EQ(dst.size(), 3u);
+    SSTL_TEST_EQ(src.size(), 1u);
+    SSTL_TEST_ASSERT(!dst.try_splice(src.begin(), src, src.begin()));
+  }
+
+  {
+    sstl::list<int, 1> full_dst;
+    sstl::list<int, 1> src;
+    SSTL_TEST_ASSERT(full_dst.push_back(1));
+    SSTL_TEST_ASSERT(src.push_back(2));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(full_dst.end(), src, src.begin()));
+  }
+
+  {
+    sstl::list<int, 4> self;
+    SSTL_TEST_ASSERT(self.push_back(1));
+    SSTL_TEST_ASSERT(self.push_back(2));
+    SSTL_TEST_ASSERT(self.push_back(3));
+    sstl::list<int, 4>::iterator first = self.begin();
+    sstl::list<int, 4>::iterator second = first;
+    ++second;
+    SSTL_TEST_ASSERT(self.try_splice(first, self, first));
+    SSTL_TEST_ASSERT(self.try_splice(second, self, first));
+    SSTL_TEST_ASSERT(self.try_splice(self.end(), self, first));
+    SSTL_TEST_EQ(self.size(), 3u);
+  }
+
+  {
+    sstl::list<int, 6> dst;
+    sstl::list<int, 6> src;
+    SSTL_TEST_ASSERT(dst.push_back(0));
+    SSTL_TEST_ASSERT(src.push_back(1));
+    SSTL_TEST_ASSERT(src.push_back(2));
+    SSTL_TEST_ASSERT(src.push_back(3));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.begin(), src.begin()));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.begin(), src.end()));
+    SSTL_TEST_ASSERT(src.empty());
+    SSTL_TEST_EQ(dst.size(), 4u);
+    sstl::list<int, 6> invalid_range_src;
+    SSTL_TEST_ASSERT(invalid_range_src.push_back(1));
+    SSTL_TEST_ASSERT(!dst.try_splice(dst.end(), invalid_range_src,
+                                     invalid_range_src.end(),
+                                     invalid_range_src.begin()));
+  }
+
+  {
+    sstl::list<int, 2> full_dst;
+    sstl::list<int, 4> src;
+    SSTL_TEST_ASSERT(full_dst.push_back(1));
+    SSTL_TEST_ASSERT(full_dst.push_back(2));
+    SSTL_TEST_ASSERT(src.push_back(3));
+    SSTL_TEST_ASSERT(src.push_back(4));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(full_dst.end(), src, src.begin(), src.end()));
+    SSTL_TEST_ASSERT(full_dst.splice(full_dst.end(), src, src.begin(), src.begin()));
+  }
+
+  {
+    sstl::list<int, 5> dst;
+    sstl::list<int, 2> src;
+    SSTL_TEST_ASSERT(dst.push_back(0));
+    SSTL_TEST_ASSERT(src.push_back(1));
+    SSTL_TEST_ASSERT(src.push_back(2));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.begin(), src.begin()));
+    SSTL_TEST_ASSERT(dst.try_splice(dst.end(), src, src.begin(), src.end()));
+    SSTL_TEST_ASSERT(src.empty());
+    SSTL_TEST_EQ(dst.size(), 3u);
+  }
+}
+
+static void sub90_header_branch_edges_are_exercised() {
+  sstl_test::noalloc_guard guard;
+
+  {
+    sstl::deque<int, 4> d;
+    int values[] = {7, 8};
+    SSTL_TEST_ASSERT(d.try_push_front(2));
+    SSTL_TEST_ASSERT(d.try_push_front(1));
+    sstl::deque<int, 4> other;
+    SSTL_TEST_ASSERT(other.push_back(9));
+    SSTL_TEST_ASSERT(d.try_insert(other.begin(), 3) == d.end());
+    SSTL_TEST_ASSERT(d.try_insert(d.end() + 1, 3) == d.end());
+    SSTL_TEST_ASSERT(d.insert(other.begin(), 3) == d.end());
+    SSTL_TEST_ASSERT(d.insert(d.begin(), 0u, 5) == d.begin());
+    SSTL_TEST_ASSERT(d.try_insert(d.begin(), 0u, 5) == d.begin());
+    SSTL_TEST_ASSERT(d.insert(d.end() + 1, 0u, 5) == d.end());
+    SSTL_TEST_ASSERT(d.try_insert(d.end() + 1, 0u, 5) == d.end());
+    SSTL_TEST_ASSERT(d.insert(d.begin(), values, values + 2) == d.begin());
+    SSTL_TEST_ASSERT(d.full());
+    SSTL_TEST_ASSERT(!d.try_push_front(0));
+    SSTL_TEST_ASSERT(d.insert(d.begin(), values, values + 1) == d.end());
+    SSTL_TEST_ASSERT(d.try_insert(d.begin(), values, values + 1) == d.end());
+    SSTL_TEST_ASSERT(d.erase(d.end()) == d.end());
+    SSTL_TEST_ASSERT(d.erase(d.begin(), other.begin()) == d.end());
+  }
+
+  {
+    sstl::forward_list<int, 4> list;
+    int range_values[] = {4, 5, 6};
+    SSTL_TEST_ASSERT(list.insert_after(list.before_begin(), range_values, range_values) == list.before_begin());
+    SSTL_TEST_ASSERT(list.insert_after(list.end(), range_values, range_values + 1) == list.end());
+    SSTL_TEST_ASSERT(list.insert_after(list.before_begin(), 1) != list.end());
+    SSTL_TEST_ASSERT(list.insert_after(list.begin(), 2) != list.end());
+    sstl::forward_list<int, 4>::iterator first = list.begin();
+    SSTL_TEST_ASSERT(list.erase_after(first) == list.end());
+    SSTL_TEST_EQ(list.size(), 1u);
+    int out = 0;
+    SSTL_TEST_ASSERT(list.try_pop_front(&out));
+    SSTL_TEST_EQ(out, 1);
+    SSTL_TEST_ASSERT(list.empty());
+    SSTL_TEST_ASSERT(list.try_insert_after(list.before_begin(), 7) != list.end());
+    SSTL_TEST_ASSERT(list.try_insert_after(list.begin(), 8) != list.end());
+    SSTL_TEST_ASSERT(list.try_insert_after(list.end(), 9) == list.end());
+  }
+
+  {
+    sstl::forward_list<int, 4> relink_tail;
+    sstl::forward_list<int, 4>::iterator insert_pos = relink_tail.before_begin();
+    insert_pos = relink_tail.insert_after(insert_pos, 1);
+    insert_pos = relink_tail.insert_after(insert_pos, 2);
+    sstl::forward_list<int, 4>::iterator third = relink_tail.insert_after(insert_pos, 3);
+    sstl::forward_list<int, 4>::iterator fourth = relink_tail.insert_after(third, 4);
+    SSTL_TEST_ASSERT(relink_tail.splice_after(fourth, relink_tail, relink_tail.before_begin(), third));
+    {
+      const int expected[] = {3, 4, 1, 2};
+      expect_forward_list_values(relink_tail, expected, 4u);
+    }
+  }
+
+  {
+    sstl::forward_list<int, 4> relink_head;
+    sstl::forward_list<int, 4>::iterator first = relink_head.insert_after(relink_head.before_begin(), 1);
+    sstl::forward_list<int, 4>::iterator second = relink_head.insert_after(first, 2);
+    sstl::forward_list<int, 4>::iterator third = relink_head.insert_after(second, 3);
+    sstl::forward_list<int, 4>::iterator fourth = relink_head.insert_after(third, 4);
+    SSTL_TEST_ASSERT(relink_head.splice_after(relink_head.before_begin(), relink_head, first, fourth));
+    {
+      const int expected[] = {2, 3, 1, 4};
+      expect_forward_list_values(relink_head, expected, 4u);
+    }
+  }
+
+  {
+    sstl::forward_list<int, 3> dst;
+    sstl::forward_list<int, 3> src;
+    sstl::forward_list<int, 3> empty_src;
+    int values[] = {8, 9, 10};
+    SSTL_TEST_ASSERT(dst.insert_after(dst.before_begin(), 1) != dst.end());
+    SSTL_TEST_ASSERT(src.insert_after(src.before_begin(), 3) != src.end());
+    sstl::forward_list<int, 3>::iterator src_head = src.insert_after(src.before_begin(), 2);
+    SSTL_TEST_ASSERT(dst.try_insert_after(src_head, 4) == dst.end());
+    SSTL_TEST_ASSERT(!dst.try_splice_after(dst.end(), src));
+    SSTL_TEST_ASSERT(dst.try_splice_after(dst.before_begin(), empty_src));
+    SSTL_TEST_ASSERT(dst.insert_after(dst.begin(), values, values + 3) == dst.end());
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!dst.splice_after(dst.before_begin(), src, src.before_begin(), src.before_begin()));
+#endif
+    SSTL_TEST_ASSERT(!dst.try_splice_after(dst.before_begin(), src, src.before_begin(), src.before_begin()));
+    sstl::forward_list<int, 3>::iterator src_tail = src_head;
+    ++src_tail;
+    SSTL_TEST_ASSERT(!dst.try_splice_after(dst.before_begin(), src, src_tail));
+  }
+
+  {
+    sstl::forward_list<int, 4> self;
+    SSTL_TEST_ASSERT(self.insert_after(self.before_begin(), 3) != self.end());
+    SSTL_TEST_ASSERT(self.insert_after(self.before_begin(), 2) != self.end());
+    SSTL_TEST_ASSERT(self.insert_after(self.before_begin(), 1) != self.end());
+    sstl::forward_list<int, 4>::iterator head = self.begin();
+    sstl::forward_list<int, 4>::iterator second = head;
+    ++second;
+    SSTL_TEST_ASSERT(self.splice_after(self.before_begin(), self));
+    SSTL_TEST_ASSERT(self.try_splice_after(head, self));
+    SSTL_TEST_ASSERT(self.try_splice_after(head, self, head));
+    SSTL_TEST_ASSERT(self.splice_after(self.before_begin(), self, self.before_begin(), second));
+    SSTL_TEST_ASSERT(self.splice_after(second, self, self.before_begin(), second));
+    SSTL_TEST_ASSERT(self.try_splice_after(self.before_begin(), self, self.before_begin(), second));
+  }
+
+  {
+    sstl::forward_list<int, 2> full_dst;
+    sstl::forward_list<int, 2> same_src;
+    sstl::forward_list<int, 3> cross_src;
+    SSTL_TEST_ASSERT(full_dst.insert_after(full_dst.before_begin(), 2) != full_dst.end());
+    SSTL_TEST_ASSERT(full_dst.insert_after(full_dst.before_begin(), 1) != full_dst.end());
+    SSTL_TEST_ASSERT(same_src.insert_after(same_src.before_begin(), 4) != same_src.end());
+    SSTL_TEST_ASSERT(same_src.insert_after(same_src.before_begin(), 3) != same_src.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 6) != cross_src.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 5) != cross_src.end());
+    SSTL_TEST_ASSERT(!full_dst.try_splice_after(full_dst.before_begin(), same_src, same_src.before_begin(), same_src.end()));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!full_dst.splice_after(full_dst.before_begin(), same_src, same_src.before_begin(), same_src.end()));
+    SSTL_TEST_ASSERT(!full_dst.splice_after(full_dst.before_begin(), cross_src, cross_src.before_begin(), cross_src.end()));
+#endif
+    SSTL_TEST_ASSERT(!full_dst.try_splice_after(full_dst.before_begin(), cross_src, cross_src.before_begin(), cross_src.end()));
+    SSTL_TEST_ASSERT(!full_dst.try_splice_after(full_dst.end(), same_src, same_src.before_begin(), same_src.end()));
+    SSTL_TEST_ASSERT(!full_dst.try_splice_after(full_dst.before_begin(), same_src, same_src.before_begin(), same_src.before_begin()));
+  }
+
+  {
+    sstl::forward_list<int, 4> cross_dst;
+    sstl::forward_list<int, 3> cross_src;
+    SSTL_TEST_ASSERT(cross_dst.insert_after(cross_dst.before_begin(), 0) != cross_dst.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 3) != cross_src.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 2) != cross_src.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 1) != cross_src.end());
+    SSTL_TEST_ASSERT(cross_dst.splice_after(cross_dst.before_begin(), cross_src, cross_src.before_begin()));
+    SSTL_TEST_ASSERT(cross_dst.try_splice_after(cross_dst.before_begin(), cross_src, cross_src.before_begin()));
+    SSTL_TEST_ASSERT(cross_dst.try_splice_after(cross_dst.before_begin(), cross_src, cross_src.before_begin(), cross_src.end()));
+  }
+
+  {
+    sstl::forward_list<int, 4> cross_dst;
+    sstl::forward_list<int, 3> cross_src;
+    SSTL_TEST_ASSERT(cross_dst.insert_after(cross_dst.before_begin(), 0) != cross_dst.end());
+    SSTL_TEST_ASSERT(cross_src.insert_after(cross_src.before_begin(), 3) != cross_src.end());
+    sstl::forward_list<int, 3>::iterator cross_head = cross_src.insert_after(cross_src.before_begin(), 2);
+    SSTL_TEST_ASSERT(!cross_dst.try_splice_after(cross_dst.end(), cross_src, cross_src.before_begin()));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!cross_dst.splice_after(cross_dst.before_begin(), cross_src, cross_src.before_begin(), cross_src.before_begin()));
+#endif
+    SSTL_TEST_ASSERT(!cross_dst.try_splice_after(cross_dst.before_begin(), cross_src, cross_src.before_begin(), cross_src.before_begin()));
+    SSTL_TEST_ASSERT(cross_dst.splice_after(cross_dst.before_begin(), cross_src, cross_head));
+  }
+
+  {
+    sstl::forward_list<int, 3> left;
+    sstl::forward_list<int, 3> right;
+    SSTL_TEST_ASSERT(left.insert_after(left.before_begin(), 2) != left.end());
+    SSTL_TEST_ASSERT(left.insert_after(left.before_begin(), 1) != left.end());
+    SSTL_TEST_ASSERT(right.insert_after(right.before_begin(), 1) != right.end());
+    SSTL_TEST_ASSERT(!(left == right));
+    SSTL_TEST_ASSERT(left != right);
+    right.clear();
+    SSTL_TEST_ASSERT(right.insert_after(right.before_begin(), 3) != right.end());
+    SSTL_TEST_ASSERT(right.insert_after(right.before_begin(), 1) != right.end());
+    SSTL_TEST_ASSERT(left < right);
+    SSTL_TEST_ASSERT(!(right < left));
+    SSTL_TEST_ASSERT(left.merge(left));
+    SSTL_TEST_ASSERT(left.try_merge(left));
+  }
+
+  {
+    sstl::forward_list<int, 3> equal_left;
+    sstl::forward_list<int, 3> equal_right;
+    SSTL_TEST_ASSERT(equal_left.insert_after(equal_left.before_begin(), 2) != equal_left.end());
+    SSTL_TEST_ASSERT(equal_left.insert_after(equal_left.before_begin(), 1) != equal_left.end());
+    SSTL_TEST_ASSERT(equal_right.insert_after(equal_right.before_begin(), 2) != equal_right.end());
+    SSTL_TEST_ASSERT(equal_right.insert_after(equal_right.before_begin(), 1) != equal_right.end());
+    SSTL_TEST_ASSERT(equal_left == equal_right);
+    SSTL_TEST_ASSERT(!(equal_left != equal_right));
+
+    sstl::forward_list<int, 3> shorter;
+    sstl::forward_list<int, 3> longer;
+    SSTL_TEST_ASSERT(shorter.insert_after(shorter.before_begin(), 1) != shorter.end());
+    SSTL_TEST_ASSERT(longer.insert_after(longer.before_begin(), 2) != longer.end());
+    SSTL_TEST_ASSERT(longer.insert_after(longer.before_begin(), 1) != longer.end());
+    SSTL_TEST_ASSERT(shorter < longer);
+    SSTL_TEST_ASSERT(!(longer < shorter));
+  }
+
+  {
+    sstl::list<int, 4> list;
+    int range_values[] = {2, 3};
+    SSTL_TEST_ASSERT(list.insert(list.end(), 0u, 9) == list.end());
+    SSTL_TEST_ASSERT(list.insert(list.end(), range_values, range_values) == list.end());
+    SSTL_TEST_ASSERT(list.insert(list.end(), range_values, range_values + 2) != list.end());
+    SSTL_TEST_ASSERT(list.insert(list.end(), range_values, range_values + 2) != list.end());
+    SSTL_TEST_ASSERT(list.full());
+    SSTL_TEST_ASSERT(list.insert(list.end(), 1u, 9) == list.end());
+    SSTL_TEST_ASSERT(list.insert(list.end(), range_values, range_values + 1) == list.end());
+    SSTL_TEST_ASSERT(list.erase(list.end()) == list.end());
+    SSTL_TEST_ASSERT(list.erase(list.end(), list.begin()) == list.end());
+    SSTL_TEST_ASSERT(list.resize(2u));
+    SSTL_TEST_EQ(list.size(), 2u);
+    SSTL_TEST_ASSERT(!list.resize(5u));
+    list.reverse();
+    SSTL_TEST_EQ(list.size(), 2u);
+    sstl::list<int, 4> empty_reverse;
+    empty_reverse.reverse();
+  }
+
+  {
+    sstl::list<int, 2> pop_and_unique;
+    SSTL_TEST_ASSERT(pop_and_unique.push_back(1));
+    pop_and_unique.pop_back();
+    pop_and_unique.unique();
+    pop_and_unique.unique(same_mod_ten);
+#if SSTL_ON_ERROR == SSTL_RETURN
+    pop_and_unique.pop_back();
+#endif
+
+    SSTL_TEST_ASSERT(pop_and_unique.push_back(1));
+    SSTL_TEST_ASSERT(pop_and_unique.push_back(2));
+    const sstl::list<int, 2>& const_pop_and_unique = pop_and_unique;
+    sstl::list<int, 2>::const_iterator const_it = const_pop_and_unique.begin();
+    ++const_it;
+    --const_it;
+    SSTL_TEST_ASSERT(*const_it == 1);
+  }
+
+  {
+    sstl::list<int, 4> self;
+    SSTL_TEST_ASSERT(self.push_back(1));
+    SSTL_TEST_ASSERT(self.push_back(2));
+    SSTL_TEST_ASSERT(self.push_back(3));
+    sstl::list<int, 4>::iterator first = self.begin();
+    sstl::list<int, 4>::iterator second = first;
+    ++second;
+    sstl::list<int, 4>::iterator third = second;
+    ++third;
+    SSTL_TEST_ASSERT(self.splice(self.end(), self));
+    SSTL_TEST_ASSERT(self.try_splice(self.end(), self));
+    SSTL_TEST_ASSERT(self.splice(first, self, first));
+    SSTL_TEST_ASSERT(self.try_splice(first, self, first));
+    SSTL_TEST_ASSERT(self.splice(second, self, first));
+    SSTL_TEST_ASSERT(self.try_splice(second, self, first));
+    SSTL_TEST_ASSERT(self.splice(third, self, first, third));
+    SSTL_TEST_ASSERT(self.try_splice(third, self, first, third));
+  }
+
+  {
+    sstl::list<int, 2> full_dst;
+    sstl::list<int, 2> same_src;
+    sstl::list<int, 3> cross_src;
+    SSTL_TEST_ASSERT(full_dst.push_back(1));
+    SSTL_TEST_ASSERT(full_dst.push_back(2));
+    SSTL_TEST_ASSERT(same_src.push_back(3));
+    SSTL_TEST_ASSERT(same_src.push_back(4));
+    SSTL_TEST_ASSERT(cross_src.push_back(5));
+    SSTL_TEST_ASSERT(cross_src.push_back(6));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(full_dst.end(), same_src, same_src.begin(), same_src.end()));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(full_dst.end(), cross_src, cross_src.begin(), cross_src.end()));
+#if SSTL_ON_ERROR == SSTL_RETURN
+    SSTL_TEST_ASSERT(!full_dst.splice(full_dst.end(), same_src, same_src.begin(), same_src.end()));
+    SSTL_TEST_ASSERT(!full_dst.splice(full_dst.end(), cross_src, cross_src.begin(), cross_src.end()));
+#endif
+    SSTL_TEST_ASSERT(!full_dst.try_splice(full_dst.end(), same_src, same_src.end(), same_src.begin()));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(same_src.begin(), same_src));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(same_src.begin(), same_src, same_src.begin()));
+    SSTL_TEST_ASSERT(!full_dst.try_splice(same_src.begin(), same_src, same_src.begin(), same_src.end()));
+  }
+
+  {
+    sstl::list<int, 4> merge_left;
+    sstl::list<int, 4> merge_right;
+    SSTL_TEST_ASSERT(merge_left.push_back(1));
+    SSTL_TEST_ASSERT(merge_left.push_back(3));
+    SSTL_TEST_ASSERT(merge_right.push_back(2));
+    SSTL_TEST_ASSERT(merge_left.merge(merge_right));
+    SSTL_TEST_ASSERT(merge_right.empty());
+    sstl::list<int, 4> empty_left;
+    sstl::list<int, 4> one_right;
+    SSTL_TEST_ASSERT(one_right.push_back(1));
+    SSTL_TEST_ASSERT(empty_left.merge(one_right));
+    SSTL_TEST_ASSERT(one_right.empty());
+    SSTL_TEST_ASSERT(empty_left.merge(empty_left));
+    SSTL_TEST_ASSERT(empty_left.try_merge(empty_left));
+  }
+
+  {
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int> hashed;
+    SSTL_TEST_ASSERT(hashed.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_ASSERT(hashed.insert(sstl::make_pair(2, 20)).second);
+    SSTL_TEST_ASSERT(hashed.insert(sstl::make_pair(3, 30)).second);
+    sstl::pair<sstl::unordered_map<int, int, 4, 1, constant_hash_int>::iterator,
+               sstl::unordered_map<int, int, 4, 1, constant_hash_int>::iterator> range =
+      hashed.equal_range(2);
+    SSTL_TEST_ASSERT(range.first != hashed.end());
+    SSTL_TEST_ASSERT(range.second != range.first);
+    SSTL_TEST_EQ(hashed[4], 0);
+    SSTL_TEST_ASSERT(hashed.try_at(4) != 0);
+    const sstl::unordered_map<int, int, 4, 1, constant_hash_int>& const_hashed = hashed;
+    SSTL_TEST_ASSERT(const_hashed.try_at(4) != 0);
+    SSTL_TEST_ASSERT(const_hashed.equal_range(2).first != const_hashed.end());
+
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::local_iterator local = hashed.begin(0u);
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::local_iterator same_local = local;
+    SSTL_TEST_ASSERT(local == same_local);
+    ++local;
+    SSTL_TEST_ASSERT(local != same_local);
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::local_iterator null_local;
+    SSTL_TEST_ASSERT(null_local == null_local);
+    const sstl::unordered_map<int, int, 4, 1, constant_hash_int>::const_local_iterator const_local = const_hashed.begin(0u);
+    SSTL_TEST_ASSERT(const_local != const_hashed.end(0u));
+    SSTL_TEST_ASSERT(const_hashed.cbegin(0u) != const_hashed.cend(0u));
+
+    SSTL_TEST_ASSERT(hashed.is_valid_iterator(hashed.end()));
+    SSTL_TEST_ASSERT(const_hashed.is_valid_iterator(const_hashed.end()));
+    SSTL_TEST_ASSERT(hashed.begin(99u) == hashed.end(99u));
+    SSTL_TEST_ASSERT(const_hashed.begin(99u) == const_hashed.end(99u));
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::local_iterator unbound_local;
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::local_iterator default_local;
+    ++unbound_local;
+    SSTL_TEST_ASSERT(unbound_local == default_local);
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::local_iterator bucket_end = hashed.end(0u);
+    ++bucket_end;
+    SSTL_TEST_ASSERT(bucket_end == hashed.end(0u));
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::const_local_iterator unbound_const_local;
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::const_local_iterator default_const_local;
+    ++unbound_const_local;
+    SSTL_TEST_ASSERT(unbound_const_local == default_const_local);
+
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int> other_const_compare;
+    SSTL_TEST_ASSERT(other_const_compare.insert(sstl::make_pair(7, 70)).second);
+    const sstl::unordered_map<int, int, 4, 1, constant_hash_int>& const_other_compare = other_const_compare;
+    SSTL_TEST_ASSERT(!(const_hashed.begin() == const_other_compare.begin()));
+
+    sstl::unordered_map<int, int, 2, 1, constant_hash_int> stale_map;
+    SSTL_TEST_ASSERT(stale_map.insert(sstl::make_pair(1, 1)).second);
+    sstl::unordered_map<int, int, 2, 1, constant_hash_int>::iterator stale = stale_map.begin();
+    sstl::unordered_map<int, int, 2, 1, constant_hash_int>::const_iterator const_stale = stale;
+    stale_map.erase(stale);
+    const sstl::unordered_map<int, int, 2, 1, constant_hash_int>& const_stale_map = stale_map;
+    SSTL_TEST_ASSERT(!stale_map.is_valid_iterator(stale));
+    SSTL_TEST_ASSERT(!const_stale_map.is_valid_iterator(const_stale));
+
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::iterator first = hashed.begin();
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int>::iterator last = first;
+    ++last;
+    ++last;
+    SSTL_TEST_ASSERT(hashed.erase(first, last) == last);
+    SSTL_TEST_EQ(hashed.size(), 2u);
+    sstl::unordered_map<int, int, 4, 1, constant_hash_int> other;
+    SSTL_TEST_ASSERT(hashed.erase(other.begin(), hashed.end()) == hashed.end());
+  }
 }
 
 static void documented_swap_overloads_exchange_fixed_storage_containers() {
@@ -2244,6 +3259,20 @@ static void documented_swap_overloads_exchange_fixed_storage_containers() {
   SSTL_TEST_EQ(right_hash_map.size(), 2u);
   SSTL_TEST_EQ(right_hash_map.find(1)->second, 10);
   SSTL_TEST_EQ(right_hash_map.find(2)->second, 20);
+  {
+    sstl::unordered_map<int, int, 4, 5> map_b5;
+    sstl::unordered_map<int, int, 4, 7> map_b7;
+    sstl::unordered_map<int, int, 5, 7> different_map;
+    SSTL_TEST_ASSERT(map_b5.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_ASSERT(map_b5.insert(sstl::make_pair(2, 20)).second);
+    SSTL_TEST_ASSERT(map_b7.insert(sstl::make_pair(2, 20)).second);
+    SSTL_TEST_ASSERT(map_b7.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_ASSERT(different_map.insert(sstl::make_pair(1, 10)).second);
+    SSTL_TEST_ASSERT(different_map.insert(sstl::make_pair(3, 30)).second);
+    SSTL_TEST_ASSERT(map_b5 == map_b7);
+    SSTL_TEST_ASSERT(!(map_b5 != map_b7));
+    SSTL_TEST_ASSERT(map_b5 != different_map);
+  }
 
   sstl::unordered_set<int, 4, 5> left_hash_set;
   sstl::unordered_set<int, 4, 5> right_hash_set;
@@ -2256,6 +3285,20 @@ static void documented_swap_overloads_exchange_fixed_storage_containers() {
   SSTL_TEST_EQ(right_hash_set.size(), 2u);
   SSTL_TEST_ASSERT(right_hash_set.find(1) != right_hash_set.end());
   SSTL_TEST_ASSERT(right_hash_set.find(2) != right_hash_set.end());
+  {
+    sstl::unordered_set<int, 4, 5> set_b5;
+    sstl::unordered_set<int, 4, 7> set_b7;
+    sstl::unordered_set<int, 5, 7> different_set;
+    SSTL_TEST_ASSERT(set_b5.insert(1).second);
+    SSTL_TEST_ASSERT(set_b5.insert(2).second);
+    SSTL_TEST_ASSERT(set_b7.insert(2).second);
+    SSTL_TEST_ASSERT(set_b7.insert(1).second);
+    SSTL_TEST_ASSERT(different_set.insert(1).second);
+    SSTL_TEST_ASSERT(different_set.insert(3).second);
+    SSTL_TEST_ASSERT(set_b5 == set_b7);
+    SSTL_TEST_ASSERT(!(set_b5 != set_b7));
+    SSTL_TEST_ASSERT(set_b5 != different_set);
+  }
 }
 
 int main() {
@@ -2271,6 +3314,9 @@ int main() {
     {"list_splice_merge_sort_and_empty_edges_are_exercised", list_splice_merge_sort_and_empty_edges_are_exercised},
     {"algorithm_edge_paths_cover_short_ranges_and_branch_outcomes", algorithm_edge_paths_cover_short_ranges_and_branch_outcomes},
     {"small_utility_headers_get_edge_branch_exercise", small_utility_headers_get_edge_branch_exercise},
+    {"remaining_return_policy_edges_are_exercised", remaining_return_policy_edges_are_exercised},
+    {"remaining_list_transfer_edges_are_exercised", remaining_list_transfer_edges_are_exercised},
+    {"sub90_header_branch_edges_are_exercised", sub90_header_branch_edges_are_exercised},
     {"documented_swap_overloads_exchange_fixed_storage_containers", documented_swap_overloads_exchange_fixed_storage_containers}
   };
   return sstl_test::run_all(tests, sizeof(tests) / sizeof(tests[0]));

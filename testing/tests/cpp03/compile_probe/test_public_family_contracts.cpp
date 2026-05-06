@@ -31,6 +31,7 @@
 #include <sstl/queue.hpp>
 #include <sstl/stack.hpp>
 #include <sstl/priority_queue.hpp>
+#include <sstl/type_traits.hpp>
 #include <cstddef>
 #include "test_harness.hpp"
 #include "noalloc_audit.hpp"
@@ -38,6 +39,8 @@
 static int plus_one(int x) { return x + 1; }
 static int add_two(int a, int b) { return a + b; }
 static int add_three(int a, int b, int c) { return a + b + c; }
+static int ref_value = 0;
+static int& return_ref_value() { return ref_value; }
 
 typedef char yes_probe;
 struct no_probe { char bytes[2]; };
@@ -71,6 +74,17 @@ static void require_iterator_nested_typedefs(void) {
   (void)pointer;
   (void)distance;
   (void)category;
+}
+
+template <class Actual, class Expected>
+static void require_same_type(void) {
+  SSTL_STATIC_ASSERT((sstl::is_same<Actual, Expected>::value), public_family_expected_type);
+}
+
+template <class Set>
+static void require_const_set_iterator_contract(void) {
+  require_same_type<typename Set::iterator::reference, const typename Set::iterator::value_type&>();
+  require_same_type<typename Set::iterator::pointer, const typename Set::iterator::value_type*>();
 }
 
 static void contiguous_and_deque_contracts() {
@@ -146,6 +160,12 @@ static void contiguous_and_deque_contracts() {
   SSTL_TEST_EQ(sp_from_array.subspan(2u, 9u).size(), 1u);
   SSTL_TEST_ASSERT(sp_from_array.subspan(9u, 2u).empty());
   SSTL_TEST_ASSERT(sp_from_array.subspan(9u).empty());
+  sstl::span<int> empty_span;
+  SSTL_TEST_ASSERT(empty_span.begin() == empty_span.end());
+  SSTL_TEST_ASSERT(empty_span.cbegin() == empty_span.cend());
+  SSTL_TEST_ASSERT(empty_span.last(0u).empty());
+  SSTL_TEST_ASSERT(empty_span.subspan(0u).empty());
+  SSTL_TEST_ASSERT(empty_span.subspan(empty_span.size()).empty());
   sstl::vector<int, 4> v;
   SSTL_TEST_ASSERT(v.push_back(10));
   SSTL_TEST_ASSERT(v.push_back(20));
@@ -241,8 +261,14 @@ static void ordered_and_unordered_contracts() {
 
   sstl::flat_set<int, 3> fs;
   SSTL_TEST_ASSERT(fs.insert(5).second);
+  SSTL_TEST_ASSERT(fs.insert(7).second);
   SSTL_TEST_ASSERT(fs.find(5) != fs.end());
+  SSTL_TEST_EQ(*fs.lower_bound(6), 7);
+  SSTL_TEST_ASSERT(fs.upper_bound(7) == fs.end());
+  SSTL_TEST_ASSERT(fs.equal_range(5).first == fs.find(5));
+  SSTL_TEST_ASSERT(fs.equal_range(5).second == fs.upper_bound(5));
   SSTL_TEST_EQ(fs.erase(5), 1u);
+  SSTL_TEST_EQ(fs.erase(7), 1u);
   SSTL_TEST_ASSERT(fs.insert(6).second);
   sstl::flat_set<int, 3>::iterator fs_after = fs.erase(fs.find(6));
   SSTL_TEST_ASSERT(fs_after == fs.end());
@@ -498,6 +524,10 @@ static void utility_family_contracts() {
   SSTL_TEST_EQ(*opt, 42);
   SSTL_TEST_EQ(opt.value(), 42);
   SSTL_TEST_EQ(opt.value_or(7), 42);
+  SSTL_TEST_ASSERT(opt == 42);
+  SSTL_TEST_ASSERT(42 == opt);
+  SSTL_TEST_ASSERT(opt != 7);
+  SSTL_TEST_ASSERT(7 != opt);
   opt = sstl::nullopt;
   SSTL_TEST_ASSERT(opt == sstl::nullopt);
   SSTL_TEST_EQ(opt.value_or(7), 7);
@@ -527,6 +557,11 @@ static void utility_family_contracts() {
   sstl::function1<int, int, 32> fn(plus_one);
   SSTL_TEST_ASSERT(fn);
   SSTL_TEST_EQ(fn(8), 9);
+  ref_value = 41;
+  sstl::function0<int&, 32> ref_fn(return_ref_value);
+  SSTL_TEST_ASSERT(ref_fn);
+  ref_fn() = 99;
+  SSTL_TEST_EQ(ref_value, 99);
   sstl::function1<int, int, 32> stateful(stateful_adder(5));
   SSTL_TEST_EQ(stateful(8), 13);
   sstl::function2<int, int, int, 32> fn2(add_two);
@@ -537,14 +572,14 @@ static void utility_family_contracts() {
 
 static void iterator_and_functional_contracts() {
   sstl_test::noalloc_guard guard;
-  require_iterator_nested_typedefs<sstl::array<int, 3>::iterator>();
-  require_iterator_nested_typedefs<sstl::array<int, 3>::const_iterator>();
-  require_iterator_nested_typedefs<sstl::span<int>::iterator>();
-  require_iterator_nested_typedefs<sstl::span<int>::const_iterator>();
-  require_iterator_nested_typedefs<sstl::vector<int, 3>::iterator>();
-  require_iterator_nested_typedefs<sstl::vector<int, 3>::const_iterator>();
-  require_iterator_nested_typedefs<sstl::string<8>::iterator>();
-  require_iterator_nested_typedefs<sstl::string<8>::const_iterator>();
+  require_same_type<sstl::array<int, 3>::iterator, int*>();
+  require_same_type<sstl::array<int, 3>::const_iterator, const int*>();
+  require_same_type<sstl::span<int>::iterator, int*>();
+  require_same_type<sstl::span<int>::const_iterator, const int*>();
+  require_same_type<sstl::vector<int, 3>::iterator, int*>();
+  require_same_type<sstl::vector<int, 3>::const_iterator, const int*>();
+  require_same_type<sstl::string<8>::iterator, char*>();
+  require_same_type<sstl::string<8>::const_iterator, const char*>();
   require_iterator_nested_typedefs<sstl::deque<int, 3>::iterator>();
   require_iterator_nested_typedefs<sstl::deque<int, 3>::const_iterator>();
   require_iterator_nested_typedefs<sstl::forward_list<int, 3>::iterator>();
@@ -553,10 +588,19 @@ static void iterator_and_functional_contracts() {
   require_iterator_nested_typedefs<sstl::list<int, 3>::const_iterator>();
   require_iterator_nested_typedefs<sstl::map<int, int, 3>::iterator>();
   require_iterator_nested_typedefs<sstl::map<int, int, 3>::const_iterator>();
+  require_iterator_nested_typedefs<sstl::flat_map<int, int, 3>::iterator>();
+  require_iterator_nested_typedefs<sstl::flat_map<int, int, 3>::const_iterator>();
+  require_iterator_nested_typedefs<sstl::set<int, 3>::iterator>();
+  require_iterator_nested_typedefs<sstl::set<int, 3>::const_iterator>();
+  require_iterator_nested_typedefs<sstl::flat_set<int, 3>::iterator>();
+  require_iterator_nested_typedefs<sstl::flat_set<int, 3>::const_iterator>();
   require_iterator_nested_typedefs<sstl::unordered_map<int, int, 3, 7>::iterator>();
   require_iterator_nested_typedefs<sstl::unordered_map<int, int, 3, 7>::const_iterator>();
   require_iterator_nested_typedefs<sstl::unordered_set<int, 3, 7>::iterator>();
   require_iterator_nested_typedefs<sstl::unordered_set<int, 3, 7>::const_iterator>();
+  require_const_set_iterator_contract<sstl::set<int, 3> >();
+  require_const_set_iterator_contract<sstl::flat_set<int, 3> >();
+  require_const_set_iterator_contract<sstl::unordered_set<int, 3, 7> >();
 
   sstl::forward_list<int, 3> flist;
   SSTL_TEST_ASSERT(flist.insert_after(flist.before_begin(), 1) != flist.end());

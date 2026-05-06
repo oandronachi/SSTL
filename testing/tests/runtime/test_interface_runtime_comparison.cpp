@@ -1196,9 +1196,9 @@ static metric run_cpp_set_lane() {
     for (unsigned i = 0; i < RUNTIME_ASSOC_CAP; i += 7u) {
       guard.checkpoint("find", i, RUNTIME_ASSOC_CAP);
       const int key = static_cast<int>((i * 37u) % RUNTIME_ASSOC_CAP);
-      int* p = s.find(key);
-      SSTL_TEST_ASSERT(p != 0);
-      checksum += static_cast<unsigned long>(*p);
+      sstl::set<int, RUNTIME_ASSOC_CAP>::iterator it = s.find(key);
+      SSTL_TEST_ASSERT(it != s.end());
+      checksum += static_cast<unsigned long>(*it);
     }
     checksum += cycle;
   }
@@ -1357,9 +1357,9 @@ static metric run_cpp_flat_set_lane() {
     }
     for (unsigned i = 0; i < RUNTIME_ASSOC_CAP; i += 7u) {
       const int key = static_cast<int>((i * 37u) % RUNTIME_ASSOC_CAP);
-      int* found = s.find(key);
-      SSTL_TEST_ASSERT(found != 0);
-      checksum += static_cast<unsigned long>(*found);
+      sstl::flat_set<int, RUNTIME_ASSOC_CAP>::iterator it = s.find(key);
+      SSTL_TEST_ASSERT(it != s.end());
+      checksum += static_cast<unsigned long>(*it);
     }
     checksum += cycle;
   }

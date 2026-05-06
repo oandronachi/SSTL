@@ -1,0 +1,78 @@
+status: pass
+generated_at_utc: 2026-05-06T18:14:18.989953+00:00
+scope: best-effort-installed-vendor-and-cross-compilers
+lanes_total: 10
+lanes_passed: 0
+lanes_skipped: 10
+lanes_failed: 0
+lanes:
+  - name: "msvc_cpp_public"
+    compiler: "cl"
+    language: "cpp"
+    source: "tests/cpp03/compile_probe/sstl_cxx03_probe.cpp"
+    status: skipped
+    note: "cl.exe or Visual Studio C++ build tools not found"
+    detail: "cl.exe or Visual Studio C++ build tools not found"
+  - name: "msvc_c_public"
+    compiler: "cl"
+    language: "c"
+    source: "tests/c99/compile_probe/sstl_c99_probe.c"
+    status: skipped
+    note: "cl.exe or Visual Studio C++ build tools not found"
+    detail: "cl.exe or Visual Studio C++ build tools not found"
+  - name: "armclang_cpp_freestanding"
+    compiler: "armclang"
+    language: "cpp"
+    source: "tests/freestanding/freestanding_cpp03_probe.cpp"
+    status: skipped
+    note: "ArmClang Cortex-M syntax-only C++03 freestanding probe"
+    detail: "armclang not found"
+  - name: "armclang_c_freestanding"
+    compiler: "armclang"
+    language: "c"
+    source: "tests/freestanding/freestanding_c99_probe.c"
+    status: skipped
+    note: "ArmClang Cortex-M syntax-only C99 freestanding probe"
+    detail: "armclang not found"
+  - name: "arm_none_eabi_gcc_cpp_freestanding"
+    compiler: "arm-none-eabi-g++"
+    language: "cpp"
+    source: "tests/freestanding/freestanding_cpp03_probe.cpp"
+    status: skipped
+    note: "GNU Arm Embedded C++03 freestanding syntax probe"
+    detail: "arm-none-eabi-g++ not found"
+  - name: "arm_none_eabi_gcc_c_freestanding"
+    compiler: "arm-none-eabi-gcc"
+    language: "c"
+    source: "tests/freestanding/freestanding_c99_probe.c"
+    status: skipped
+    note: "GNU Arm Embedded C99 freestanding syntax probe"
+    detail: "arm-none-eabi-gcc not found"
+  - name: "keil_armcc_cpp_freestanding"
+    compiler: "armcc"
+    language: "cpp"
+    source: "tests/freestanding/freestanding_cpp03_probe.cpp"
+    status: skipped
+    note: "Keil armcc C++ freestanding compile probe"
+    detail: "Keil armcc not found"
+  - name: "keil_armcc_c_freestanding"
+    compiler: "armcc"
+    language: "c"
+    source: "tests/freestanding/freestanding_c99_probe.c"
+    status: skipped
+    note: "Keil armcc C99 freestanding compile probe"
+    detail: "Keil armcc not found"
+  - name: "iar_iccarm_cpp_freestanding"
+    compiler: "iccarm"
+    language: "cpp"
+    source: "tests/freestanding/freestanding_cpp03_probe.cpp"
+    status: skipped
+    note: "IAR ARM C++ freestanding compile probe"
+    detail: "IAR iccarm not found"
+  - name: "iar_iccarm_c_freestanding"
+    compiler: "iccarm"
+    language: "c"
+    source: "tests/freestanding/freestanding_c99_probe.c"
+    status: skipped
+    note: "IAR ARM C99 freestanding compile probe"
+    detail: "IAR iccarm not found"

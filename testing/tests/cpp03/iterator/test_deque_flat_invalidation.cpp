@@ -82,6 +82,40 @@ static void deque_iterator_random_access_operations_match_declared_category() {
   SSTL_TEST_ASSERT(!cd.is_valid_iterator(cd.end() + 1));
 }
 
+static void deque_positional_mutators_reject_stale_iterators() {
+#if SSTL_ON_ERROR == SSTL_RETURN
+  sstl_test::noalloc_guard guard;
+  sstl::deque<int, 8> d;
+  SSTL_TEST_ASSERT(d.push_back(1));
+  SSTL_TEST_ASSERT(d.push_back(2));
+  SSTL_TEST_ASSERT(d.push_back(3));
+
+  sstl::deque<int, 8>::iterator stale_count_pos = d.begin() + 1;
+  SSTL_TEST_ASSERT(d.push_back(4));
+  SSTL_TEST_ASSERT(!d.is_valid_iterator(stale_count_pos));
+  SSTL_TEST_ASSERT(d.insert(stale_count_pos, 2u, 9) == d.end());
+  SSTL_TEST_EQ(d.size(), 4u);
+  SSTL_TEST_EQ(d[1], 2);
+
+  const int more[] = {7, 8};
+  sstl::deque<int, 8>::iterator stale_range_pos = d.begin() + 2;
+  SSTL_TEST_ASSERT(d.push_front(0));
+  SSTL_TEST_ASSERT(!d.is_valid_iterator(stale_range_pos));
+  SSTL_TEST_ASSERT(d.insert(stale_range_pos, more, more + 2) == d.end());
+  SSTL_TEST_EQ(d.size(), 5u);
+  SSTL_TEST_EQ(d[2], 2);
+
+  sstl::deque<int, 8>::iterator stale_first = d.begin() + 1;
+  sstl::deque<int, 8>::iterator stale_last = d.begin() + 3;
+  SSTL_TEST_ASSERT(d.push_back(5));
+  SSTL_TEST_ASSERT(!d.is_valid_iterator(stale_first));
+  SSTL_TEST_ASSERT(!d.is_valid_iterator(stale_last));
+  SSTL_TEST_ASSERT(d.erase(stale_first, stale_last) == d.end());
+  SSTL_TEST_EQ(d.size(), 6u);
+  SSTL_TEST_EQ(d[1], 1);
+#endif
+}
+
 static void flat_map_mutation_invalidates_iterators_by_generation() {
   sstl_test::noalloc_guard guard;
   sstl::flat_map<int, int, 4> m;
@@ -101,6 +135,7 @@ int main() {
   const sstl_test::test_case tests[] = {
     {"deque_mutation_invalidates_all_iterators_by_generation", deque_mutation_invalidates_all_iterators_by_generation},
     {"deque_iterator_random_access_operations_match_declared_category", deque_iterator_random_access_operations_match_declared_category},
+    {"deque_positional_mutators_reject_stale_iterators", deque_positional_mutators_reject_stale_iterators},
     {"flat_map_mutation_invalidates_iterators_by_generation", flat_map_mutation_invalidates_iterators_by_generation}
   };
   return sstl_test::run_all(tests, sizeof(tests) / sizeof(tests[0]));

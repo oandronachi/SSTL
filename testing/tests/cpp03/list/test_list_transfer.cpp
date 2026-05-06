@@ -21,7 +21,10 @@ static void cross_container_splice_is_all_or_nothing() {
   SSTL_TEST_ASSERT(src.push_back(2));
   SSTL_TEST_ASSERT(src.push_back(3));
   SSTL_TEST_ASSERT(dst.push_back(9));
+  SSTL_TEST_ASSERT(!dst.try_splice(dst.end(), src));
+#if SSTL_ON_ERROR == SSTL_RETURN
   SSTL_TEST_ASSERT(!dst.splice(dst.end(), src));
+#endif
   SSTL_TEST_EQ(src.size(), 3u);
   SSTL_TEST_EQ(dst.size(), 1u);
   SSTL_TEST_EQ(*src.try_front(), 1);

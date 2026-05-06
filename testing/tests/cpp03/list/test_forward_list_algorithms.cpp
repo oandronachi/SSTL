@@ -65,7 +65,10 @@ static void merge_preserves_sorted_order_and_source_on_capacity_failure() {
   right_tail = right.before_begin();
   right_tail = append_value(right, right_tail, 6);
   right_tail = append_value(right, right_tail, 7);
+  SSTL_TEST_ASSERT(!small.try_merge(right));
+#if SSTL_ON_ERROR == SSTL_RETURN
   SSTL_TEST_ASSERT(!small.merge(right));
+#endif
   SSTL_TEST_EQ(small.size(), 2u);
   SSTL_TEST_EQ(right.size(), 2u);
 }

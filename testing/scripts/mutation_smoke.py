@@ -73,7 +73,7 @@ def run_mutant(root: Path, sstl_root: Path, mutant_name: str, mutate) -> bool:
         if run([
             "cmake",
             "-S",
-            str(root),
+            ".",
             "-B",
             str(build_dir),
             "-DSSTL_ROOT=" + str(impl_root),
@@ -101,9 +101,8 @@ def run_mutant(root: Path, sstl_root: Path, mutant_name: str, mutate) -> bool:
         return killed
 
 
-def write_summary(root: Path, results: list[tuple[str, bool]]) -> None:
+def write_summary(output: Path, results: list[tuple[str, bool]]) -> None:
     survived = [name for name, killed in results if not killed]
-    out = root / "manifests" / "mutation_summary.yaml"
     lines = [
         f"generated_at_utc: {datetime.now(timezone.utc).isoformat()}",
         "tool: deterministic-smoke",
@@ -116,18 +115,21 @@ def write_summary(root: Path, results: list[tuple[str, bool]]) -> None:
     for name, killed in results:
         lines.append(f"  - id: {name}")
         lines.append(f"    status: {'killed' if killed else 'survived'}")
-    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(out)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(output)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default=".", help="Test package root")
     parser.add_argument("--sstl-root", required=True, help="SSTL implementation root")
+    parser.add_argument("--output", default="", help="Summary manifest output path")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
     sstl_root = Path(args.sstl_root).resolve()
+    output = Path(args.output).resolve() if args.output else root / "manifests" / "mutation_summary.yaml"
 
     def mutate_cpp_vector(impl_root: Path) -> None:
         replace_once(
@@ -147,7 +149,7 @@ def main() -> int:
         ("cpp-vector-full-push-reports-success", run_mutant(root, sstl_root, "cpp-vector", mutate_cpp_vector)),
         ("c-vector-full-push-reports-success", run_mutant(root, sstl_root, "c-vector", mutate_c_vector)),
     ]
-    write_summary(root, results)
+    write_summary(output, results)
     return 0 if all(killed for _, killed in results) else 1
 
 

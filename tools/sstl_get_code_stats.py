@@ -5,19 +5,27 @@ from __future__ import annotations
 
 import argparse
 import ast
-import ctypes
 import csv
 import io
 import json
 import os
 import queue
-import subprocess
 import sys
 import threading
 import tokenize
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
+
+from sstl_tool_common import (
+    attach_text_copy_context_menu,
+    maybe_relaunch_windows_gui,
+    parent_is_known_terminal,
+    repo_root_from_script,
+    set_buttons_enabled,
+    set_minimum_window_size,
+    terminal_like_launch,
+)
 
 
 CPP_EXTS = {".h", ".hpp", ".c", ".cpp", ".cc", ".cxx"}
@@ -33,8 +41,7 @@ EXCLUDED_BUNDLE_NAMES = {
     "sstl-bundle-impl-no-comments.yaml",
     "sstl-bundle-tests-no-comments.yaml",
 }
-SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_ROOT = SCRIPT_DIR.parent if SCRIPT_DIR.name == "tools" else SCRIPT_DIR
+DEFAULT_ROOT = repo_root_from_script(__file__)
 ARTIFACT_ROOT = DEFAULT_ROOT / "artifacts"
 DEFAULT_CSV = ARTIFACT_ROOT / "sstl-code-stats.csv"
 DEFAULT_JSON = ARTIFACT_ROOT / "sstl-code-stats.json"
@@ -65,8 +72,8 @@ Reported fields:
     chars, and whitespace chars first
 
 Default exclusions:
-  Deprecated folders, generated build outputs, Doxygen HTML, caches, and bundle
-  YAML files are excluded from the source-code accounting.
+  Deprecated folders, generated build outputs, caches, and the full artifacts/
+  tree are excluded from the source-code accounting.
 
 Generated artifacts:
   artifacts/sstl-code-stats.csv
@@ -566,63 +573,6 @@ def compute_stats(root: Path, selected: list[str] | None = None) -> tuple[list[S
     return [aggregate(name, groups[name]) for name in names], list(groups.keys())
 
 
-def terminal_like_launch() -> bool:
-    return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
-
-
-def parent_process_name() -> str:
-    if os.name != "nt":
-        return ""
-    try:
-        parent_pid = os.getppid()
-        process_query_limited_information = 0x1000
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.OpenProcess(process_query_limited_information, False, parent_pid)
-        if not handle:
-            return ""
-        try:
-            size = ctypes.c_ulong(32768)
-            buf = ctypes.create_unicode_buffer(size.value)
-            if kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
-                return Path(buf.value).name.lower()
-        finally:
-            kernel32.CloseHandle(handle)
-    except Exception:
-        return ""
-    return ""
-
-
-def parent_is_known_terminal() -> bool:
-    return parent_process_name() in {
-        "cmd.exe",
-        "powershell.exe",
-        "pwsh.exe",
-        "windowsterminal.exe",
-        "wt.exe",
-        "conhost.exe",
-        "openconsole.exe",
-        "terminal64.exe",
-        "terminal.exe",
-    }
-
-
-def maybe_relaunch_windows_gui() -> bool:
-    if os.name != "nt" or len(sys.argv) > 1:
-        return False
-    if Path(sys.executable).name.lower() == "pythonw.exe":
-        return False
-    if parent_is_known_terminal():
-        return False
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    if not pythonw.exists():
-        return False
-    try:
-        subprocess.Popen([str(pythonw), str(Path(__file__).resolve())], cwd=str(DEFAULT_ROOT), close_fds=True)
-        return True
-    except Exception:
-        return False
-
-
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Report SSTL line and character statistics.")
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="Workspace root. Defaults to the parent of tools/.")
@@ -698,6 +648,7 @@ def run_gui() -> int:
         tk.Checkbutton(left, text=name, variable=var, anchor="w", justify=tk.LEFT, wraplength=280).pack(fill=tk.X, anchor="w")
 
     text = scrolledtext.ScrolledText(right, wrap=tk.WORD)
+    attach_text_copy_context_menu(text)
     text.pack(fill=tk.BOTH, expand=True)
 
     controls = tk.Frame(right)
@@ -711,8 +662,7 @@ def run_gui() -> int:
         return [name for name, var in group_vars.items() if var.get()]
 
     def set_running(running: bool) -> None:
-        for button in buttons:
-            button.config(state=tk.DISABLED if running else tk.NORMAL)
+        set_buttons_enabled(buttons, not running)
 
     def worker(names: list[str]) -> None:
         if not names:
@@ -876,6 +826,7 @@ def run_gui() -> int:
             legend_x += 170
         y = legend_y + 36
         canvas.configure(scrollregion=(0, 0, width, y))
+        set_minimum_window_size(win, 1220, 760)
 
     def show_help() -> None:
         messagebox.showinfo("SSTL Code Stats Help", HELP_TEXT)
@@ -912,6 +863,7 @@ def run_gui() -> int:
 
     write("Select groups and click Run Stats.\n")
     write("The same script also works from a terminal; click Help for examples.\n")
+    set_minimum_window_size(root, 1040, 720)
     root.after(100, poll)
     root.mainloop()
     return 0
@@ -921,7 +873,7 @@ def main(argv: list[str] | None = None) -> int:
     actual_argv = sys.argv[1:] if argv is None else argv
     if actual_argv:
         return run_cli(actual_argv)
-    if maybe_relaunch_windows_gui():
+    if maybe_relaunch_windows_gui(DEFAULT_ROOT, __file__, actual_argv):
         return 0
     if terminal_like_launch() and parent_is_known_terminal():
         return run_cli([])

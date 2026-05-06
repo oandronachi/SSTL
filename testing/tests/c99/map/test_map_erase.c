@@ -114,6 +114,38 @@ static void set_iteration_is_sorted_and_erase_preserves_tree_search(void) {
   sstl_c_noalloc_end();
 }
 
+static void public_iterators_to_successor_survive_two_child_erase(void) {
+  c_ext_map8 m;
+  c_ext_map8_iterator map_it;
+  c_ext_map8_pair* entry;
+  c_ext_set8 s;
+  c_ext_set8_iterator set_it;
+  int* value;
+
+  sstl_c_noalloc_begin();
+  c_ext_map8_init(&m);
+  SSTL_C_ASSERT(c_ext_map8_insert(&m, 2, 20));
+  SSTL_C_ASSERT(c_ext_map8_insert(&m, 1, 10));
+  SSTL_C_ASSERT(c_ext_map8_insert(&m, 3, 30));
+  map_it = c_ext_map8_lower_bound(&m, 3);
+  SSTL_C_EQ(c_ext_map8_erase(&m, 2), 1u);
+  entry = c_ext_map8_at(&m, map_it);
+  SSTL_C_ASSERT(entry != 0);
+  SSTL_C_EQ(entry->key, 3);
+  SSTL_C_EQ(entry->value, 30);
+
+  c_ext_set8_init(&s);
+  SSTL_C_ASSERT(c_ext_set8_insert(&s, 2));
+  SSTL_C_ASSERT(c_ext_set8_insert(&s, 1));
+  SSTL_C_ASSERT(c_ext_set8_insert(&s, 3));
+  set_it = c_ext_set8_lower_bound(&s, 3);
+  SSTL_C_EQ(c_ext_set8_erase(&s, 2), 1u);
+  value = c_ext_set8_at(&s, set_it);
+  SSTL_C_ASSERT(value != 0);
+  SSTL_C_EQ(*value, 3);
+  sstl_c_noalloc_end();
+}
+
 static void in_place_tree_erase_handles_rebalance_shapes(void) {
   c_ext_map8 m;
   c_ext_map8_iterator map_it;
@@ -177,6 +209,7 @@ int main(void) {
     {"erase_by_key_reports_count_and_preserves_remaining_entries", erase_by_key_reports_count_and_preserves_remaining_entries},
     {"map_iteration_is_sorted_by_key", map_iteration_is_sorted_by_key},
     {"set_iteration_is_sorted_and_erase_preserves_tree_search", set_iteration_is_sorted_and_erase_preserves_tree_search},
+    {"public_iterators_to_successor_survive_two_child_erase", public_iterators_to_successor_survive_two_child_erase},
     {"in_place_tree_erase_handles_rebalance_shapes", in_place_tree_erase_handles_rebalance_shapes}
   };
   return sstl_c_run_all(tests, (int)(sizeof(tests) / sizeof(tests[0])));

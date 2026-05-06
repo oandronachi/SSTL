@@ -65,6 +65,15 @@ static void string_view_constructs_from_static_containers() {
   SSTL_TEST_EQ(vv.compare("vi"), 0);
 }
 
+static void string_view_empty_null_substr_remains_empty() {
+  const char* null_chars = 0;
+  sstl::string_view sv(null_chars, 0);
+  sstl::string_view sub = sv.substr();
+  SSTL_TEST_ASSERT(sub.empty());
+  SSTL_TEST_EQ(sub.size(), 0u);
+  SSTL_TEST_ASSERT(sub.data() != 0);
+}
+
 static void string_view_search_edges_report_absence_cleanly() {
   const sstl::string_view sv("embedded", 8);
   const sstl::string_view empty("", 0);
@@ -75,6 +84,8 @@ static void string_view_search_edges_report_absence_cleanly() {
   SSTL_TEST_EQ(sv.find('e', 99u), sstl::npos);
   SSTL_TEST_EQ(sv.find(static_cast<int>('m')), 1u);
   SSTL_TEST_EQ(sv.find("zz"), sstl::npos);
+  SSTL_TEST_EQ(sv.find("bed", 0u, 3u), 2u);
+  SSTL_TEST_EQ(sv.find("e", 1u, sstl::npos), sstl::npos);
   SSTL_TEST_EQ(sv.find("", 3u), 3u);
   SSTL_TEST_EQ(sv.find("", 99u), sstl::npos);
   SSTL_TEST_EQ(sv.rfind(0), sstl::npos);
@@ -143,6 +154,7 @@ int main() {
   const sstl_test::test_case tests[] = {
     {"string_view_observers_and_mutating_view_ops", string_view_observers_and_mutating_view_ops},
     {"string_view_constructs_from_static_containers", string_view_constructs_from_static_containers},
+    {"string_view_empty_null_substr_remains_empty", string_view_empty_null_substr_remains_empty},
     {"string_view_search_edges_report_absence_cleanly", string_view_search_edges_report_absence_cleanly}
   };
   return sstl_test::run_all(tests, sizeof(tests) / sizeof(tests[0]));

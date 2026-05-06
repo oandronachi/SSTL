@@ -144,6 +144,11 @@ tests:
     req_ids: [REQ-02, REQ-03, REQ-05, REQ-06]
     api_ids: [cpp.array.contract, cpp.array.comparison, cpp.span.contract, cpp.deque.contract, cpp.list.contract, cpp.forward_list.contract, cpp.map.contract, cpp.set.contract, cpp.set.erase, cpp.flat_map.contract, cpp.flat_map.erase, cpp.flat_map.bounds, cpp.flat_set.contract, cpp.flat_set.erase, cpp.unordered_map.contract, cpp.unordered_map.erase, cpp.unordered_set.contract, cpp.unordered_set.erase, cpp.bitset.contract, cpp.optional.contract, cpp.variant.contract, cpp.function.contract, cpp.functional.contract, cpp.numeric.contract, cpp.iterator.contract, cpp.utility.non_member_hooks, cpp.lifetime.shims, cpp.vector.cross_capacity.sfinae, cpp.queue.contract, cpp.stack.contract, cpp.priority_queue.contract, cpp.owning.try_capacity]
     patterns: [CAPACITY-BOUNDARY, STL-COMPILE-PARITY, AUDIT-NOALLOC]
+  - test_id: cpp03.spec_parity_contracts
+    virtual_path: tests/cpp03/compile_probe/test_spec_parity_contracts.cpp
+    req_ids: [REQ-03, REQ-04, REQ-05, REQ-06]
+    api_ids: [cpp.deque.contract, cpp.list.contract, cpp.forward_list.contract, cpp.map.contract, cpp.set.contract, cpp.flat_map.contract, cpp.flat_set.contract, cpp.unordered_map.contract, cpp.unordered_set.contract, cpp.optional.contract, cpp.priority_queue.contract, cpp.queue.contract, cpp.stack.contract, cpp.string.pop_back, cpp.iterator.contract, cpp.utility.non_member_hooks]
+    patterns: [STL-COMPILE-PARITY, CAPACITY-BOUNDARY, EDGE-BRANCH-COVERAGE]
   - test_id: cpp03.compile.mixed_c_cpp_panic_hook
     virtual_path: tests/cpp03/compile_probe/test_mixed_c_cpp_panic_hook.cpp
     req_ids: [REQ-01, REQ-04, REQ-07, REQ-10]
@@ -284,6 +289,16 @@ tests:
     req_ids: [REQ-08]
     api_ids: [package.docs.integrity]
     patterns: [DOC-LINK-INTEGRITY]
+  - test_id: package.misra.advisory_scan
+    virtual_path: scripts/misra_advisory_scan.py
+    req_ids: [REQ-06]
+    api_ids: [package.misra.advisory_scan]
+    patterns: [MISRA-ADVISORY-SCAN]
+  - test_id: package.vendor.compiler_lanes
+    virtual_path: scripts/vendor_compiler_lanes.py
+    req_ids: [REQ-01, REQ-06]
+    api_ids: [package.vendor.compiler_lanes]
+    patterns: [VENDOR-COMPILER-LANES, FREESTANDING-COMPILE]
   - test_id: property.cpp03.vector.random_trace.seeded
     virtual_path: tests/properties/cpp03/prop_vector_random_trace.cpp
     req_ids: [REQ-03, REQ-05, REQ-06]
@@ -293,6 +308,21 @@ tests:
     virtual_path: tests/fuzz/cpp03/fuzz_vector_trace.cpp
     req_ids: [REQ-02, REQ-03, REQ-05]
     api_ids: [cpp.vector.push_back, cpp.vector.erase]
+    patterns: [FUZZ, AUDIT-NOALLOC]
+  - test_id: fuzz.cpp03.string.byte_trace
+    virtual_path: tests/fuzz/cpp03/fuzz_string_trace.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05]
+    api_ids: [cpp.string.push_back, cpp.string.pop_back, cpp.string.append_n, cpp.string.insert, cpp.string.erase, cpp.string.resize, cpp.string.find, cpp.string.compare]
+    patterns: [FUZZ, AUDIT-NOALLOC]
+  - test_id: fuzz.cpp03.flat_map.byte_trace
+    virtual_path: tests/fuzz/cpp03/fuzz_flat_map_trace.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05]
+    api_ids: [cpp.flat_map.contract, cpp.flat_map.erase, cpp.flat_map.bounds]
+    patterns: [FUZZ, AUDIT-NOALLOC]
+  - test_id: fuzz.cpp03.unordered_map.byte_trace
+    virtual_path: tests/fuzz/cpp03/fuzz_unordered_map_trace.cpp
+    req_ids: [REQ-02, REQ-03, REQ-05]
+    api_ids: [cpp.unordered_map.contract, cpp.unordered_map.erase, cpp.unordered_map.subscript]
     patterns: [FUZZ, AUDIT-NOALLOC]
   - test_id: stress.cpp03.vector.long_cycles
     virtual_path: tests/stress/cpp03/stress_vector_cycles.cpp

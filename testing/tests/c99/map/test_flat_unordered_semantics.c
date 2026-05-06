@@ -89,6 +89,13 @@ static void unordered_map_and_set_use_fixed_bucket_chains(void) {
   SSTL_C_ASSERT(c_sem_unordered_map_insert(&map, first, first + 100));
   SSTL_C_ASSERT(c_sem_unordered_map_insert(&map, second, second + 100));
   SSTL_C_EQ(c_sem_unordered_map_size(&map), 2u);
+  SSTL_C_ASSERT(c_sem_unordered_map_load_factor(&map) > 0.0f);
+  SSTL_C_ASSERT(c_sem_unordered_map_max_load_factor(&map) >= c_sem_unordered_map_load_factor(&map));
+  SSTL_C_ASSERT(c_sem_unordered_map_begin(&map) != c_sem_unordered_map_end(&map));
+  SSTL_C_ASSERT(c_sem_unordered_map_deref(&map, c_sem_unordered_map_begin(&map)) != 0);
+  SSTL_C_ASSERT(c_sem_unordered_map_equal_range_first(&map, first) != c_sem_unordered_map_end(&map));
+  SSTL_C_EQ(c_sem_unordered_map_equal_range_second(&map, first),
+            c_sem_unordered_map_next(&map, c_sem_unordered_map_equal_range_first(&map, first)));
   SSTL_C_EQ(map.free_head, 2u);
   SSTL_C_ASSERT(map.buckets[bucket] != (size_t)-1);
   SSTL_C_ASSERT(map.next[map.buckets[bucket]] != (size_t)-1);
@@ -106,6 +113,13 @@ static void unordered_map_and_set_use_fixed_bucket_chains(void) {
   SSTL_C_EQ(set.free_head, 0u);
   SSTL_C_ASSERT(c_sem_unordered_set_insert(&set, first));
   SSTL_C_ASSERT(c_sem_unordered_set_insert(&set, second));
+  SSTL_C_ASSERT(c_sem_unordered_set_load_factor(&set) > 0.0f);
+  SSTL_C_ASSERT(c_sem_unordered_set_max_load_factor(&set) >= c_sem_unordered_set_load_factor(&set));
+  SSTL_C_ASSERT(c_sem_unordered_set_begin(&set) != c_sem_unordered_set_end(&set));
+  SSTL_C_ASSERT(c_sem_unordered_set_deref(&set, c_sem_unordered_set_begin(&set)) != 0);
+  SSTL_C_ASSERT(c_sem_unordered_set_equal_range_first(&set, first) != c_sem_unordered_set_end(&set));
+  SSTL_C_EQ(c_sem_unordered_set_equal_range_second(&set, first),
+            c_sem_unordered_set_next(&set, c_sem_unordered_set_equal_range_first(&set, first)));
   SSTL_C_EQ(set.free_head, 2u);
   SSTL_C_ASSERT(!c_sem_unordered_set_insert(&set, second));
   SSTL_C_ASSERT(c_sem_unordered_set_find(&set, first) != 0);

@@ -23,8 +23,8 @@ static void assign_insert_erase_replace_and_plus_equal_follow_string_model() {
   SSTL_TEST_ASSERT(s == "ade");
   SSTL_TEST_ASSERT(s.replace(1, 1, "BCD"));
   SSTL_TEST_ASSERT(s == "aBCDe");
-  s += "fg";
-  s += 'h';
+  SSTL_TEST_ASSERT(s += "fg");
+  SSTL_TEST_ASSERT(s += 'h');
   SSTL_TEST_ASSERT(s == "aBCDefgh");
 }
 
@@ -39,12 +39,41 @@ static void bounded_operations_fail_without_partial_mutation() {
   SSTL_TEST_ASSERT(s == "abc");
   SSTL_TEST_ASSERT(s.append("de", 2));
   SSTL_TEST_ASSERT(s == "abcde");
+  SSTL_TEST_ASSERT(!(s += 'f'));
+  SSTL_TEST_ASSERT(s == "abcde");
+}
+
+static void self_aliasing_mutators_stage_source_before_writing() {
+  sstl_test::noalloc_guard guard;
+  sstl::string<16> s("abc");
+  SSTL_TEST_ASSERT(s.assign(s));
+  SSTL_TEST_ASSERT(s == "abc");
+
+  sstl::string<16> subassign("abcdef");
+  SSTL_TEST_ASSERT(subassign.assign(subassign, 2u, 3u));
+  SSTL_TEST_ASSERT(subassign == "cde");
+
+  sstl::string<16> insert_all("abc");
+  SSTL_TEST_ASSERT(insert_all.insert(1u, insert_all));
+  SSTL_TEST_ASSERT(insert_all == "aabcbc");
+
+  sstl::string<16> insert_sub("abcdef");
+  SSTL_TEST_ASSERT(insert_sub.insert(2u, insert_sub, 1u, 3u));
+  SSTL_TEST_ASSERT(insert_sub == "abbcdcdef");
+
+  sstl::string<16> replace_all("abcdef");
+  SSTL_TEST_ASSERT(replace_all.replace(1u, 3u, replace_all));
+  SSTL_TEST_ASSERT(replace_all == "aabcdefef");
+
+  sstl::string<16> replace_sub("abcdef");
+  SSTL_TEST_ASSERT(replace_sub.replace(1u, 3u, replace_sub.c_str() + 2u, 2u));
+  SSTL_TEST_ASSERT(replace_sub == "acdef");
 }
 
 static void pop_back_resize_and_swap_follow_string_model() {
   sstl_test::noalloc_guard guard;
   sstl::string<8> s("abc");
-  SSTL_TEST_ASSERT(s.pop_back());
+  s.pop_back();
   SSTL_TEST_ASSERT(s == "ab");
   SSTL_TEST_EQ(s.size(), 2u);
   SSTL_TEST_EQ(s.c_str()[2], '\0');
@@ -64,7 +93,7 @@ static void pop_back_resize_and_swap_follow_string_model() {
   SSTL_TEST_ASSERT(s == "ab");
   SSTL_TEST_ASSERT(other == "Q");
   sstl::string<2> empty;
-  SSTL_TEST_ASSERT(!empty.pop_back());
+  empty.pop_back();
   SSTL_TEST_ASSERT(empty.empty());
   SSTL_TEST_EQ(empty.c_str()[0], '\0');
 }
@@ -113,7 +142,7 @@ static void cross_capacity_compare_uses_current_text_only() {
   SSTL_TEST_ASSERT("abc" <= left);
   SSTL_TEST_ASSERT("abd" > left);
   SSTL_TEST_ASSERT("abc" >= left);
-  left += equal;
+  SSTL_TEST_ASSERT(left += equal);
   SSTL_TEST_ASSERT(left == "abcabc");
   SSTL_TEST_EQ(*left.try_front(), 'a');
   SSTL_TEST_EQ(*left.try_back(), 'c');
@@ -126,6 +155,7 @@ int main() {
   const sstl_test::test_case tests[] = {
     {"assign_insert_erase_replace_and_plus_equal_follow_string_model", assign_insert_erase_replace_and_plus_equal_follow_string_model},
     {"bounded_operations_fail_without_partial_mutation", bounded_operations_fail_without_partial_mutation},
+    {"self_aliasing_mutators_stage_source_before_writing", self_aliasing_mutators_stage_source_before_writing},
     {"pop_back_resize_and_swap_follow_string_model", pop_back_resize_and_swap_follow_string_model},
     {"character_set_searches_match_expected_positions", character_set_searches_match_expected_positions},
     {"cross_capacity_compare_uses_current_text_only", cross_capacity_compare_uses_current_text_only}

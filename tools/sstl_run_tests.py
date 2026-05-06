@@ -12,6 +12,8 @@ Behavior:
   - When double-clicked with no arguments, it opens a small Tkinter GUI.
   - In auto mode, it discovers an available backend: Docker, Podman, WSL, then
     local CMake/CTest.
+  - Coverage can be run through auto fallback or forced to Docker, Podman, WSL,
+    or local coverage when that backend has the required tools.
   - If no suitable backend exists, it prints OS-specific install
     recommendations ranked by ease of setup.
 
@@ -30,6 +32,7 @@ Common terminal commands:
   python tools/sstl_run_tests.py --backend docker
   python tools/sstl_run_tests.py --backend podman
   python tools/sstl_run_tests.py --backend wsl
+  python tools/sstl_run_tests.py --backend wsl --wsl-distro Ubuntu
   python tools/sstl_run_tests.py --backend local
 
   # If nothing usable is installed, print recommendations and ask before
@@ -38,6 +41,10 @@ Common terminal commands:
 
   # Non-interactive install flow for automation.
   python tools/sstl_run_tests.py --backend auto --install-missing --yes-install
+
+  # Try to make installed backends available. This can start Docker Desktop,
+  # initialize/start a Podman machine, or install validation/coverage tools inside WSL.
+  python tools/sstl_run_tests.py --backend auto --prepare-backends
 
   # Tighter guardrails for slow or suspicious runs.
   python tools/sstl_run_tests.py --backend auto --timeout 900 --no-output-timeout 60
@@ -57,13 +64,20 @@ Common terminal commands:
   # Generate and show line/branch coverage, overall and per file.
   python tools/sstl_run_tests.py --backend docker --coverage-only
   python tools/sstl_run_tests.py --backend auto --coverage
+  # WSL coverage reports thresholds but does not gate on them, because host
+  # distro compiler versions can emit different synthetic branch counters.
+
+  # Run optional vendor compiler container image probes after the normal backend.
+  # Missing configured images ask before pull by default.
+  python tools/sstl_run_tests.py --backend podman --vendor-container-images
+  python tools/sstl_run_tests.py --vendor-container-nominees
+  python tools/sstl_run_tests.py --vendor-container-images --vendor-container-image arm-none-eabi=my/arm-gcc:latest
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
-import ctypes
 import os
 from pathlib import Path
 import queue
@@ -71,14 +85,40 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from sstl_tool_common import (
+    InstallOption,
+    ask_yes_no,
+    attach_text_copy_context_menu,
+    container_mount_arg_for_root,
+    container_engine_probe,
+    container_engine_summary,
+    decode_wsl_output,
+    display_command_arg_for_root,
+    find_container_engine_executable,
+    find_docker_desktop_executable,
+    find_named_executable,
+    find_on_path,
+    maybe_relaunch_windows_gui,
+    parent_is_known_terminal,
+    podman_machine_exists,
+    repo_root_from_script,
+    terminal_like_launch,
+    set_minimum_window_size,
+    windows_program_roots,
+    wsl_command,
+    wsl_default_distro,
+    wsl_distro_is_internal,
+    wsl_installed_distros,
+)
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT = SCRIPT_DIR.parent if SCRIPT_DIR.name == "tools" else SCRIPT_DIR
+
+ROOT = repo_root_from_script(__file__)
 TEST_ROOT = ROOT / "testing"
 SSTL_ROOT = ROOT
 ARTIFACT_ROOT = ROOT / "artifacts"
@@ -90,10 +130,14 @@ RUNTIME_CSV_NAME = "sstl_runtime_interface_comparison.csv"
 COVERAGE_INFO_NAME = "sstl_coverage.filtered.info"
 COVERAGE_LCOV_CAPTURE_LOG_NAME = "sstl_coverage.capture.lcov.log"
 COVERAGE_LCOV_FILTER_LOG_NAME = "sstl_coverage.filter.lcov.log"
+WSL_TEST_TOOL_INSTALL = "sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc g++ clang libclang-rt-dev util-linux python3 lcov"
+WSL_COVERAGE_TOOL_INSTALL = "sudo apt-get update && sudo apt-get install -y cmake ninja-build gcc g++ lcov"
+WSL_TEST_TOOL_INSTALL_ROOT = "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y cmake ninja-build gcc g++ clang libclang-rt-dev util-linux python3 lcov"
 COVERAGE_LINE_MIN = 0.95
 COVERAGE_BRANCH_MIN = 0.90
 COVERAGE_SOURCE_PREFIXES = ("include/sstl/",)
 COVERAGE_BRANCH_POLICY = "LCOV capture excludes compiler-generated exception branches"
+LOCAL_SANITY_TIMEOUT_SECONDS = 120
 # LCOV's branch counter includes synthetic C++ exception/unwind edges unless
 # geninfo is told to drop them at capture time. The filtered .info file only
 # keeps plain BRDA records, so this has to happen during capture rather than in
@@ -102,6 +146,28 @@ LCOV_BRANCH_RC_ARGS = ["--rc", "lcov_branch_coverage=1", "--rc", "geninfo_no_exc
 LCOV_BRANCH_RC_SHELL = "--rc lcov_branch_coverage=1 --rc geninfo_no_exception_branch=1"
 
 BACKENDS = ("auto", "docker", "podman", "wsl", "local")
+VENDOR_CONTAINER_NOMINEES = {
+    "wischner-arm-none-eabi-1_1_0": (
+        "arm-none-eabi",
+        "wischner_1_1_0",
+        "wischner/gcc-arm-none-eabi:1.1.0",
+    ),
+    "jafee-arm-none-eabi-15_2_rel1": (
+        "arm-none-eabi",
+        "jafee_15_2_rel1",
+        "jafee201153/arm-none-eabi-gcc:15.2.Rel1",
+    ),
+    "jafee-arm-none-eabi-14_3_rel1": (
+        "arm-none-eabi",
+        "jafee_14_3_rel1",
+        "jafee201153/arm-none-eabi-gcc:14.3.Rel1",
+    ),
+    "gonzarub-arm-none-eabi-13_3": (
+        "arm-none-eabi",
+        "gonzarub_13_3",
+        "gonzarub/gcc-arm-none-eabi:toolchain-13.3",
+    ),
+}
 
 HELP_TEXT = """How to run SSTL tests
 
@@ -110,15 +176,34 @@ Recommended terminal command:
 
 Backend choices:
   auto    Discover and try Docker, Podman, WSL, then local CMake/CTest.
+          Container backends are selected only when their engine/socket is
+          reachable.
   docker  Run the Linux GCC validation lanes in Docker.
+          Requires Docker Desktop/daemon to be running.
   podman  Run the same containerized lanes through Podman.
+          Requires a reachable Podman machine/socket.
   wsl     On Windows, run the Linux GCC lanes inside WSL.
-  local   Run host-machine CMake/CTest lanes only.
+          Use --wsl-distro Ubuntu or SSTL_WSL_DISTRO=Ubuntu to avoid
+          Docker Desktop's internal WSL distro. Requires cmake, ninja,
+          gcc/g++, and clang/clang++ inside that distro.
+  local   Run host-machine CMake/CTest lanes only after a tiny C/C++ configure
+          and build sanity probe passes. On Windows this can use Visual Studio,
+          LLVM, MinGW, or any other CMake-supported local compiler.
 
 If no backend or toolchain is available:
   python tools/sstl_run_tests.py --backend auto --install-missing
 
 The script will print recommendations and ask before running any installer.
+
+To try to make installed but unavailable backends ready:
+  python tools/sstl_run_tests.py --backend auto --prepare-backends
+  python tools/sstl_run_tests.py --backend podman --prepare-backends --yes-prepare
+  python tools/sstl_run_tests.py --backend wsl --prepare-backends --wsl-distro Ubuntu
+
+This may start Docker Desktop, initialize/start a Podman machine, or install
+required tools inside WSL. The GUI exposes the same flow as Prepare Backends.
+Use --yes-prepare for non-interactive preparation. Use --install-missing and
+--yes-install separately if you also want to install missing host applications.
 
 Guardrail tuning:
   python tools/sstl_run_tests.py --backend auto --timeout 900 --no-output-timeout 60
@@ -148,12 +233,58 @@ Coverage observability:
   python tools/sstl_run_tests.py --backend auto --coverage
 
   The coverage report is shown overall and per file. The newest coverage info
-  is copied into artifacts/. In the GUI, click Coverage Report to generate and
-  visualize the newest coverage artifact.
+  is copied into artifacts/. In the GUI, use the Coverage row to run auto
+  coverage or force Docker, Podman, WSL, or local coverage; the report opens
+  after a successful coverage run. Local coverage additionally requires lcov
+  and a GNU/Clang-style compiler coverage sanity probe.
+  WSL coverage reports thresholds, but does not gate the command result on
+  branch coverage because host distro GCC/LCOV versions emit different
+  synthetic branch counters than the canonical Docker/local lanes.
+
+Vendor compiler container probes:
+  python tools/sstl_run_tests.py --backend docker --vendor-container-images
+  python tools/sstl_run_tests.py --backend podman --vendor-container-images
+  python tools/sstl_run_tests.py --backend local --vendor-container-images --vendor-container-engine podman
+  python tools/sstl_run_tests.py --list-vendor-container-nominees
+  python tools/sstl_run_tests.py --vendor-container-nominees
+  python tools/sstl_run_tests.py --vendor-container-nominee wischner-arm-none-eabi-1_1_0
+  python tools/sstl_run_tests.py --vendor-container-images --vendor-container-image arm-none-eabi=my/arm-gcc:latest
+
+  Image keys are armclang, arm-none-eabi, keil-armcc, and iar-iccarm. You can
+  pass KEY=IMAGE or KEY@LABEL=IMAGE. The predefined public arm-none-eabi
+  nominees are wischner-arm-none-eabi-1_1_0, jafee-arm-none-eabi-15_2_rel1,
+  jafee-arm-none-eabi-14_3_rel1, and gonzarub-arm-none-eabi-13_3. You can also
+  configure images with SSTL_VENDOR_CONTAINER_ARMCLANG_IMAGE,
+  SSTL_VENDOR_CONTAINER_ARM_NONE_EABI_IMAGE,
+  SSTL_VENDOR_CONTAINER_KEIL_ARMCC_IMAGE, and
+  SSTL_VENDOR_CONTAINER_IAR_ICCARM_IMAGE.
+
+  Pull policy is controlled separately from --install-missing:
+    --vendor-container-pull ask     Ask before pulling missing images.
+    --vendor-container-pull never   Skip lanes whose images are absent.
+    --vendor-container-pull always  Pull configured missing images without a prompt.
+
+  Pull denial, unavailable approval, or network/pull failure records the
+  dependent vendor image lanes as skipped in vendor_compiler_summary.yaml.
+  --install-missing only covers runner backends/tooling such as Docker, Podman,
+  WSL, CMake, and Ninja; it does not install proprietary compiler images.
+
+Path handling:
+  Runner commands use repository-relative paths where the backend/tool accepts
+  them. WSL derives the checkout path from its inherited current directory.
+  Docker/Podman bind mounts still use a runtime-derived host path internally,
+  because the engine needs a concrete mount source; logs display it as .:/work.
 
 Double-click behavior:
-  The GUI opens. Click Auto Backend for normal discovery, Run Locally to avoid
-  virtualized environments, or Recommend / Install to see setup commands.
+  The GUI opens. Click Auto Fallback (Recommended) for normal discovery,
+  Local to avoid virtualized environments, or Recommend / Install to see
+  setup commands. Prepare Backends can start installed Docker/Podman services
+  or install WSL validation/coverage tools after confirmation. Coverage buttons
+  sit directly under their matching backend buttons and can run auto or a
+  strict selected backend.
+  Strict backend buttons are disabled when their backend or required tooling is
+  not available. Local and Local Coverage availability include the sanity
+  probes described above, not just executable discovery.
 """
 
 ANSI_RESET = "\033[0m"
@@ -211,14 +342,6 @@ class RunResult:
     ok: bool
     returncode: int | None
     detail: str = ""
-
-
-@dataclass
-class InstallOption:
-    name: str
-    backend: str
-    commands: list[list[str]]
-    notes: list[str]
 
 
 @dataclass
@@ -297,9 +420,16 @@ class Runner:
         self.results: list[RunResult] = []
         self.cancelled = False
         self.in_expected_mutation_failure_section = False
+        self.last_successful_backend: str | None = None
+        self.wsl_distro = os.environ.get("SSTL_WSL_DISTRO", "").strip()
+        self.resolved_wsl_distro: str | None = None
+        self.resolved_wsl_coverage_distro: str | None = None
 
     def log(self, message: str) -> None:
         print(message, flush=True)
+
+    def display_cmd(self, cmd: list[str]) -> str:
+        return " ".join(display_command_arg(arg) for arg in cmd)
 
     def cancel(self) -> None:
         self.cancelled = True
@@ -307,7 +437,7 @@ class Runner:
     def run(self, name: str, cmd: list[str], cwd: Path, timeout: int | None = None) -> bool:
         self.log("")
         self.log("== " + name)
-        self.log("+ " + " ".join(cmd))
+        self.log("+ " + self.display_cmd(cmd))
         if self.dry_run:
             self.results.append(RunResult(name, True, 0, "dry-run"))
             return True
@@ -427,96 +557,6 @@ class Runner:
         return 0 if ok else 1
 
 
-def terminal_like_launch() -> bool:
-    return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
-
-
-def parent_process_name() -> str:
-    """Best-effort parent process name.
-
-    This is used only to distinguish a real terminal launch from Windows
-    Explorer double-clicking a `.py` file, which otherwise opens a console and
-    makes `isatty()` look like an intentional CLI session.
-    """
-    if os.name != "nt":
-        return ""
-    try:
-        parent_pid = os.getppid()
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, parent_pid)
-        if not handle:
-            return ""
-        try:
-            size = ctypes.c_ulong(32768)
-            buf = ctypes.create_unicode_buffer(size.value)
-            if kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
-                return Path(buf.value).name.lower()
-        finally:
-            kernel32.CloseHandle(handle)
-    except Exception:
-        return ""
-    return ""
-
-
-def parent_is_known_terminal() -> bool:
-    return parent_process_name() in {
-        "cmd.exe",
-        "powershell.exe",
-        "pwsh.exe",
-        "windowsterminal.exe",
-        "wt.exe",
-        "conhost.exe",
-        "openconsole.exe",
-        "terminal64.exe",
-        "terminal.exe",
-    }
-
-
-def maybe_relaunch_windows_gui() -> bool:
-    """Relaunch with pythonw.exe for Explorer double-clicks.
-
-    Returns True in the original console process after starting the GUI process.
-    The caller should exit immediately. This keeps the deliverable as a `.py`
-    file while avoiding the persistent console window users get from the normal
-    Windows `.py` file association.
-    """
-    if os.name != "nt" or len(sys.argv) > 1:
-        return False
-    exe_name = Path(sys.executable).name.lower()
-    if exe_name == "pythonw.exe":
-        return False
-    if parent_is_known_terminal():
-        return False
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    if not pythonw.exists():
-        return False
-    try:
-        subprocess.Popen([str(pythonw), str(Path(__file__).resolve())], cwd=str(ROOT), close_fds=True)
-        return True
-    except Exception:
-        return False
-
-
-def have_executable(name: str) -> bool:
-    return shutil.which(name) is not None
-
-
-def find_on_path(name: str) -> str | None:
-    return shutil.which(name)
-
-
-def windows_program_roots() -> list[Path]:
-    roots: list[Path] = []
-    for key in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "LocalAppData"):
-        value = os.environ.get(key)
-        if value:
-            p = Path(value)
-            if p.exists() and p not in roots:
-                roots.append(p)
-    return roots
-
-
 def run_capture(cmd: list[str], timeout: int = 20) -> str:
     try:
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, errors="replace", timeout=timeout)
@@ -612,34 +652,6 @@ def visual_studio_install_roots() -> list[Path]:
     return roots
 
 
-def find_named_executable(name: str, extra_roots: list[Path] | None = None) -> str | None:
-    direct = find_on_path(name)
-    if direct:
-        return direct
-    executable_name = name + ".exe" if os.name == "nt" and not name.lower().endswith(".exe") else name
-    roots = extra_roots or []
-    for root in roots:
-        if not root.exists():
-            continue
-        # Keep this bounded to likely tool directories. It is still generic over
-        # VS versions/editions and other vendor layouts under the chosen roots.
-        likely = [
-            root / executable_name,
-            root / "bin" / executable_name,
-            root / "Common7" / "IDE" / "CommonExtensions" / "Microsoft" / "CMake" / "CMake" / "bin" / executable_name,
-        ]
-        for candidate in likely:
-            if candidate.exists():
-                return str(candidate)
-        try:
-            for candidate in root.rglob(executable_name):
-                if candidate.is_file():
-                    return str(candidate)
-        except Exception:
-            continue
-    return None
-
-
 def find_cmake() -> str | None:
     roots = visual_studio_install_roots() if os.name == "nt" else []
     return find_named_executable("cmake", roots)
@@ -656,6 +668,112 @@ def find_ctest(cmake_path: str | None) -> str | None:
     return None
 
 
+def write_local_sanity_probe_project(source_dir: Path) -> None:
+    source_dir.mkdir(parents=True, exist_ok=True)
+    (source_dir / "CMakeLists.txt").write_text(
+        "\n".join(
+            [
+                "cmake_minimum_required(VERSION 3.14)",
+                "project(SSTLLocalSanity C CXX)",
+                "option(SSTL_LOCAL_PROBE_COVERAGE \"Check GNU/Clang lcov coverage flags\" OFF)",
+                "if(SSTL_LOCAL_PROBE_COVERAGE)",
+                "  if(NOT CMAKE_C_COMPILER_ID MATCHES \"GNU|Clang\" OR NOT CMAKE_CXX_COMPILER_ID MATCHES \"GNU|Clang\")",
+                "    message(FATAL_ERROR \"Local coverage requires GNU/Clang-style compilers for lcov capture\")",
+                "  endif()",
+                "  add_compile_options(--coverage -O0 -g)",
+                "  add_link_options(--coverage)",
+                "endif()",
+                "add_executable(c_probe probe.c)",
+                "set_property(TARGET c_probe PROPERTY C_STANDARD 99)",
+                "set_property(TARGET c_probe PROPERTY C_STANDARD_REQUIRED ON)",
+                "add_executable(cxx_probe probe.cpp)",
+                "set_property(TARGET cxx_probe PROPERTY CXX_STANDARD 98)",
+                "set_property(TARGET cxx_probe PROPERTY CXX_STANDARD_REQUIRED ON)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (source_dir / "probe.c").write_text("int main(void) { return 0; }\n", encoding="utf-8")
+    (source_dir / "probe.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
+
+
+def run_sanity_command(cmd: list[str], timeout: int = LOCAL_SANITY_TIMEOUT_SECONDS) -> tuple[bool, str]:
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout or b"").decode(errors="replace")
+        return False, (output.strip() + f"\nTimed out after {timeout} seconds").strip()
+    except Exception as exc:
+        return False, str(exc)
+    output = (proc.stdout or "").strip()
+    return proc.returncode == 0, output or f"exit {proc.returncode}"
+
+
+def last_sanity_line(output: str) -> str:
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    return lines[-1] if lines else ""
+
+
+def summarize_sanity_output(output: str) -> str:
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    keywords = ("error", "fatal", "failed", "not found", "denied", "requires")
+    for line in reversed(lines):
+        lowered = line.lower()
+        if lowered in {"-- configuring incomplete, errors occurred!", "build failed."}:
+            continue
+        if re.fullmatch(r"\d+\s+error\(s\)", line, re.IGNORECASE):
+            continue
+        if any(keyword in lowered for keyword in keywords):
+            return line
+    return lines[-1] if lines else "no diagnostic output"
+
+
+def local_sanity_probe(cmake: str, ctest: str, coverage: bool = False) -> tuple[bool, str]:
+    del ctest
+    probe_parent = TEST_ROOT / "build"
+    try:
+        probe_parent.mkdir(parents=True, exist_ok=True)
+        marker = probe_parent / (".local_probe_write_check_" + str(os.getpid() % 10000))
+        marker.write_text("ok\n", encoding="utf-8")
+        marker.unlink()
+    except Exception as exc:
+        return False, "testing/build cannot create and remove probe files: " + str(exc)
+    try:
+        probe_root = Path(tempfile.mkdtemp(prefix="sstl-lc-" if coverage else "sstl-lt-"))
+    except Exception as exc:
+        return False, "could not create local probe build directory: " + str(exc)
+    try:
+        source_dir = probe_root / "s"
+        build_dir = probe_root / "b"
+        write_local_sanity_probe_project(source_dir)
+        configure_cmd = [
+            cmake,
+            "-S",
+            str(source_dir),
+            "-B",
+            str(build_dir),
+            "-DSSTL_LOCAL_PROBE_COVERAGE=" + ("ON" if coverage else "OFF"),
+        ]
+        ok, output = run_sanity_command(configure_cmd)
+        if not ok:
+            return False, "configure failed: " + summarize_sanity_output(output)
+        ok, output = run_sanity_command([cmake, "--build", str(build_dir), "--config", "Debug"])
+        if not ok:
+            return False, "build failed: " + summarize_sanity_output(output)
+        return True, "tiny C/C++ coverage probe built" if coverage else "tiny C/C++ probe built"
+    finally:
+        shutil.rmtree(probe_root, ignore_errors=True)
+
+
 def executable_available(runner: Runner, exe: str, version_args: list[str] | None = None) -> bool:
     resolved = find_named_executable(exe)
     if not resolved:
@@ -664,30 +782,207 @@ def executable_available(runner: Runner, exe: str, version_args: list[str] | Non
     return runner.run(f"{exe} version", [resolved] + (version_args or ["--version"]), ROOT, timeout=60)
 
 
+def display_command_arg(arg: str) -> str:
+    return display_command_arg_for_root(ROOT, arg)
+
+
+def container_engine_available(runner: Runner, engine: str, record: bool) -> bool:
+    resolved = find_container_engine_executable(engine)
+    if not resolved:
+        runner.log(f"{engine} executable was not found.")
+        return False
+    if record:
+        if not runner.run(f"{engine} version", [resolved, "--version"], ROOT, timeout=60):
+            return False
+        return run_quiet_with_log(
+            runner,
+            f"{engine} engine status",
+            [resolved, "info"],
+            ROOT,
+            TEST_ROOT / "build" / "backend-probes" / (engine + "_info.log"),
+            timeout=120,
+        )
+    ok, _, detail = container_engine_probe(engine)
+    if ok:
+        runner.log(f"{engine} engine is reachable.")
+    else:
+        runner.log(f"{engine} engine is not reachable: {detail}")
+    return ok
+
+
+def wait_for_container_engine(runner: Runner, engine: str, timeout: int) -> bool:
+    if runner.dry_run:
+        runner.results.append(RunResult(f"{engine} engine ready", True, 0, "dry-run"))
+        return True
+    deadline = time.monotonic() + timeout
+    last_detail = ""
+    while time.monotonic() < deadline:
+        ok, _, detail = container_engine_probe(engine, timeout=10)
+        if ok:
+            runner.log(f"{engine} engine is reachable.")
+            runner.results.append(RunResult(f"{engine} engine ready", True, 0, "reachable"))
+            return True
+        last_detail = detail
+        time.sleep(3.0)
+    runner.log(f"{engine} engine did not become reachable: {last_detail}")
+    runner.results.append(RunResult(f"{engine} engine ready", False, None, last_detail or "timed out"))
+    return False
+
+
+def run_prepare_capture(runner: Runner, name: str, cmd: list[str], timeout: int = 300) -> tuple[bool, str]:
+    runner.log("")
+    runner.log("== " + name)
+    runner.log("+ " + runner.display_cmd(cmd))
+    if runner.dry_run:
+        runner.results.append(RunResult(name, True, 0, "dry-run"))
+        return True, ""
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout or b"").decode(errors="replace")
+        detail = f"timed out after {timeout} seconds"
+        runner.log(output)
+        runner.log("FAIL: " + name + f" ({detail})")
+        runner.results.append(RunResult(name, False, -1, detail))
+        return False, output
+    except Exception as exc:
+        runner.log("FAIL: " + name + f" ({exc})")
+        runner.results.append(RunResult(name, False, None, str(exc)))
+        return False, ""
+    output = proc.stdout or ""
+    if output:
+        runner.log(output.rstrip())
+    ok = proc.returncode == 0
+    runner.log(("PASS: " if ok else "FAIL: ") + name + ("" if ok else f" (exit {proc.returncode})"))
+    runner.results.append(RunResult(name, ok, proc.returncode, ""))
+    return ok, output
+
+
 def container_mount_arg() -> str:
-    return str(ROOT) + ":/work"
+    return container_mount_arg_for_root(ROOT)
 
 
 def run_container_lanes(runner: Runner, engine: str) -> bool:
-    engine_path = find_named_executable(engine) or engine
+    engine_path = find_container_engine_executable(engine) or engine
+    build_root = "/tmp/sstl-validation"
+    base_cache = [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DSSTL_ROOT=..",
+    ]
+
+    def configure_lane(build_name: str, extra_cache: list[str]) -> str:
+        args = " ".join(quote_sh(arg) for arg in base_cache + extra_cache)
+        return "cmake -S . -B \"$build_root/" + build_name + "\" -G Ninja " + args + "; "
+
+    def build_lane(build_name: str) -> str:
+        return "cmake --build \"$build_root/" + build_name + "\"; "
+
+    def test_lane(build_name: str, extra: str = "") -> str:
+        return "ctest --test-dir \"$build_root/" + build_name + "\" --output-on-failure" + extra + "; "
+
     shell = (
         "set -e; "
         "apt-get update >/dev/null; "
-        "apt-get install -y --no-install-recommends cmake ninja-build >/dev/null; "
-        "rm -rf build/host-debug build/host-panic build/host-ub build/host-freestanding-probes; "
-        "cmake --preset host-debug -DSSTL_ROOT=/work; "
-        "cmake --build --preset host-debug; "
-        "ctest --preset host-debug; "
-        "ctest --preset host-debug -R runtime_interface_comparison -V; "
-        "cmake --preset host-panic -DSSTL_ROOT=/work; "
-        "cmake --build --preset host-panic; "
-        "ctest --preset host-panic; "
-        "cmake --preset host-ub -DSSTL_ROOT=/work; "
-        "cmake --build --preset host-ub; "
-        "ctest --preset host-ub; "
-        "cmake --preset host-freestanding-probes -DSSTL_ROOT=/work; "
-        "cmake --build --preset host-freestanding-probes; "
-        "python3 scripts/mutation_smoke.py --root . --sstl-root /work"
+        "apt-get install -y --no-install-recommends cmake ninja-build g++ clang libclang-rt-dev util-linux >/dev/null; "
+        "test_src=/work/testing; "
+        "build_root=" + quote_sh(build_root) + "; "
+        "artifacts_dir=/work/artifacts; "
+        "cd \"$test_src\"; "
+        "rm -rf \"$build_root\"; "
+        "mkdir -p \"$build_root\"; "
+        + configure_lane("host-debug", ["-DSSTL_ERROR_POLICY=SSTL_RETURN"])
+        + build_lane("host-debug")
+        + test_lane("host-debug")
+        + test_lane("host-debug", " -R runtime_interface_comparison -V")
+        + "mkdir -p \"$artifacts_dir\"; "
+        + "runtime_csv=$(find \"$build_root/host-debug\" -name "
+        + quote_sh(RUNTIME_CSV_NAME)
+        + " -print -quit); "
+        + "if [ -n \"$runtime_csv\" ]; then cp \"$runtime_csv\" \"$artifacts_dir/"
+        + RUNTIME_CSV_NAME
+        + "\"; fi; "
+        + configure_lane("host-panic", ["-DSSTL_ERROR_POLICY=SSTL_PANIC"])
+        + build_lane("host-panic")
+        + test_lane("host-panic")
+        + configure_lane(
+            "host-ub",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_UB",
+                "-DCMAKE_C_FLAGS=-fsanitize=undefined -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=undefined -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=undefined",
+            ],
+        )
+        + build_lane("host-ub")
+        + test_lane("host-ub")
+        + configure_lane(
+            "host-asan-ubsan",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=gcc",
+                "-DCMAKE_CXX_COMPILER=g++",
+                "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined",
+            ],
+        )
+        + build_lane("host-asan-ubsan")
+        + test_lane("host-asan-ubsan")
+        + configure_lane(
+            "host-msan",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=clang",
+                "-DCMAKE_CXX_COMPILER=clang++",
+                "-DCMAKE_C_FLAGS=-fsanitize=memory -fPIE -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=memory -fPIE -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=memory -pie",
+                "-DSSTL_DISABLE_CPP_NOALLOC_AUDIT=ON",
+                "-DSSTL_ENABLE_MSAN=ON",
+                "-DSSTL_TEST_RUNNER=setarch x86_64 -R",
+            ],
+        )
+        + build_lane("host-msan")
+        + test_lane("host-msan")
+        + configure_lane(
+            "host-tsan",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=clang",
+                "-DCMAKE_CXX_COMPILER=clang++",
+                "-DCMAKE_C_FLAGS=-fsanitize=thread -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=thread -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread",
+                "-DSSTL_DISABLE_CPP_NOALLOC_AUDIT=ON",
+                "-DSSTL_TEST_RUNNER=setarch x86_64 -R",
+            ],
+        )
+        + build_lane("host-tsan")
+        + test_lane("host-tsan")
+        + configure_lane("host-freestanding-probes", ["-DSSTL_ERROR_POLICY=SSTL_RETURN", "-DSSTL_ENABLE_FREESTANDING_PROBES=ON"])
+        + build_lane("host-freestanding-probes")
+        + configure_lane(
+            "host-libfuzzer",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=clang",
+                "-DCMAKE_CXX_COMPILER=clang++",
+                "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined",
+                "-DSSTL_ENABLE_LIBFUZZER=ON",
+            ],
+        )
+        + build_lane("host-libfuzzer")
+        + "python3 scripts/mutation_smoke.py --root . --sstl-root .."
     )
     return runner.run(
         f"{engine} gcc validation lanes",
@@ -695,6 +990,8 @@ def run_container_lanes(runner: Runner, engine: str) -> bool:
             engine_path,
             "run",
             "--rm",
+            "--security-opt",
+            "seccomp=unconfined",
             "-v",
             container_mount_arg(),
             "-w",
@@ -709,76 +1006,490 @@ def run_container_lanes(runner: Runner, engine: str) -> bool:
     )
 
 
-def wsl_available(runner: Runner) -> bool:
+def wsl_installable_distro(runner: Runner) -> tuple[str, str | None] | None:
     if os.name != "nt":
         runner.log("WSL backend is only meaningful on Windows.")
-        return False
+        return None
     wsl = find_named_executable("wsl")
     if not wsl:
         runner.log("wsl executable was not found.")
-        return False
-    # `wsl --status` may be blocked in managed environments; `wsl sh -lc` is the
-    # actual capability the test runner needs, so probe that directly.
-    return runner.run("wsl shell probe", [wsl, "sh", "-lc", "uname -s && command -v sh"], ROOT, timeout=60)
-
-
-def win_path_to_wsl(path: Path) -> str:
-    """
-    Resolve a Windows path as seen from WSL.
-
-    Most WSL installations expose drives as `/mnt/c`, but some managed or
-    containerized WSL environments use a different root such as `/mnt/host/c`.
-    Ask WSL's own `wslpath` first so the backend follows the machine's real
-    mount table. The arithmetic fallback preserves compatibility with minimal
-    WSL images that do not ship `wslpath`.
-    """
-    wsl = find_named_executable("wsl")
-    if wsl:
+        return None
+    configured = runner.wsl_distro.strip()
+    candidates: list[tuple[str, str | None]] = []
+    if configured:
+        candidates.append((configured, configured))
+    else:
+        default_distro = wsl_default_distro(wsl)
+        if default_distro and not wsl_distro_is_internal(default_distro):
+            candidates.append((default_distro, None))
+        for distro in wsl_installed_distros(wsl):
+            if not wsl_distro_is_internal(distro):
+                candidates.append((distro, distro))
+    seen: set[str] = set()
+    for label, distro in candidates:
+        key = distro or "<default>"
+        if key in seen:
+            continue
+        seen.add(key)
         try:
             proc = subprocess.run(
-                [wsl, "wslpath", "-a", str(path)],
+                wsl_command(wsl, distro, "sh", "-lc", "uname -s && command -v apt-get"),
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                errors="replace",
-                timeout=30,
+                stderr=subprocess.STDOUT,
+                timeout=60,
             )
-            resolved = proc.stdout.strip()
-            if proc.returncode == 0 and resolved.startswith("/"):
-                return resolved
-        except Exception:
-            pass
-    drive = path.drive.rstrip(":").lower()
-    rest = path.as_posix().split(":", 1)[1]
-    return "/mnt/" + drive + rest
+        except Exception as exc:
+            runner.log("WSL distro is not installable: " + label + f" ({exc})")
+            continue
+        detail = " ".join(line.strip() for line in decode_wsl_output(proc.stdout).splitlines() if line.strip())
+        if proc.returncode == 0:
+            runner.log("Selected WSL distro for preparation: " + label + " (" + detail + ")")
+            return wsl, distro
+        runner.log("WSL distro is not installable: " + label + " (" + detail + ")")
+    runner.log("No Ubuntu/Debian-like WSL distro with apt-get was found for preparation.")
+    return None
+
+
+def probe_wsl_distro(wsl: str, distro: str | None) -> tuple[bool, str]:
+    probe = (
+        "uname -s; "
+        "command -v sh >/dev/null 2>&1 || exit 4; "
+        "test -d testing && test -d include || { echo 'checkout is not visible from WSL inherited cwd'; exit 3; }; "
+        "if command -v cmake >/dev/null 2>&1 && command -v ninja >/dev/null 2>&1 && "
+        "command -v gcc >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1 && "
+        "command -v clang >/dev/null 2>&1 && command -v clang++ >/dev/null 2>&1; then "
+        "  echo ready; "
+        "elif command -v apt-get >/dev/null 2>&1; then "
+        "  echo 'missing cmake/ninja/gcc/g++/clang/clang++; install inside WSL with: " + WSL_TEST_TOOL_INSTALL + "'; "
+        "  exit 3; "
+        "else "
+        "  echo 'missing cmake/ninja/clang and apt-get is not available'; "
+        "  exit 3; "
+        "fi"
+    )
+    try:
+        proc = subprocess.run(
+            wsl_command(wsl, distro, "sh", "-lc", probe),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+        )
+    except Exception as exc:
+        return False, str(exc)
+    output = " ".join(line.strip() for line in decode_wsl_output(proc.stdout).splitlines() if line.strip())
+    return proc.returncode == 0, output or f"exit {proc.returncode}"
+
+
+def probe_wsl_coverage_distro(wsl: str, distro: str | None) -> tuple[bool, str]:
+    probe = (
+        "uname -s; "
+        "command -v sh >/dev/null 2>&1 || exit 4; "
+        "test -d testing && test -d include || { echo 'checkout is not visible from WSL inherited cwd'; exit 3; }; "
+        "if command -v cmake >/dev/null 2>&1 && command -v ninja >/dev/null 2>&1 && "
+        "command -v gcc >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1 && "
+        "command -v lcov >/dev/null 2>&1; then "
+        "  echo ready; "
+        "elif command -v apt-get >/dev/null 2>&1; then "
+        "  echo 'missing cmake/ninja/gcc/g++/lcov; install inside WSL with: " + WSL_COVERAGE_TOOL_INSTALL + "'; "
+        "  exit 3; "
+        "else "
+        "  echo 'missing cmake/ninja/gcc/g++/lcov and apt-get is not available'; "
+        "  exit 3; "
+        "fi"
+    )
+    try:
+        proc = subprocess.run(
+            wsl_command(wsl, distro, "sh", "-lc", probe),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+        )
+    except Exception as exc:
+        return False, str(exc)
+    output = " ".join(line.strip() for line in decode_wsl_output(proc.stdout).splitlines() if line.strip())
+    return proc.returncode == 0, output or f"exit {proc.returncode}"
+
+
+def select_wsl_distro(runner: Runner) -> tuple[str, str | None] | None:
+    if os.name != "nt":
+        runner.log("WSL backend is only meaningful on Windows.")
+        return None
+    wsl = find_named_executable("wsl")
+    if not wsl:
+        runner.log("wsl executable was not found.")
+        return None
+
+    if runner.resolved_wsl_distro is not None:
+        return wsl, runner.resolved_wsl_distro or None
+
+    configured = runner.wsl_distro.strip()
+    candidates: list[tuple[str, str | None]] = []
+    if configured:
+        candidates.append((configured, configured))
+    else:
+        default_distro = wsl_default_distro(wsl)
+        if default_distro and wsl_distro_is_internal(default_distro):
+            runner.log("Skipping internal default WSL distro: " + default_distro)
+        else:
+            candidates.append(("default" if not default_distro else default_distro, None))
+        for distro in wsl_installed_distros(wsl):
+            if wsl_distro_is_internal(distro):
+                runner.log("Skipping internal WSL distro: " + distro)
+                continue
+            candidates.append((distro, distro))
+
+    seen: set[str] = set()
+    for label, distro in candidates:
+        key = distro or "<default>"
+        if key in seen:
+            continue
+        seen.add(key)
+        ok, detail = probe_wsl_distro(wsl, distro)
+        if ok:
+            runner.resolved_wsl_distro = distro or ""
+            runner.log("Selected WSL distro: " + label + " (" + detail + ")")
+            return wsl, distro
+        runner.log("WSL distro is not usable for SSTL lanes: " + label + " (" + detail + ")")
+
+    if configured:
+        runner.log("Configured WSL distro was not usable: " + configured)
+    else:
+        runner.log("No usable WSL distro found. Install Ubuntu/Debian or pass --wsl-distro for a suitable distro.")
+    return None
+
+
+def select_wsl_coverage_distro(runner: Runner) -> tuple[str, str | None] | None:
+    if os.name != "nt":
+        runner.log("WSL coverage backend is only meaningful on Windows.")
+        return None
+    wsl = find_named_executable("wsl")
+    if not wsl:
+        runner.log("wsl executable was not found.")
+        return None
+
+    if runner.resolved_wsl_coverage_distro is not None:
+        return wsl, runner.resolved_wsl_coverage_distro or None
+
+    configured = runner.wsl_distro.strip()
+    candidates: list[tuple[str, str | None]] = []
+    if configured:
+        candidates.append((configured, configured))
+    else:
+        default_distro = wsl_default_distro(wsl)
+        if default_distro and wsl_distro_is_internal(default_distro):
+            runner.log("Skipping internal default WSL distro: " + default_distro)
+        else:
+            candidates.append(("default" if not default_distro else default_distro, None))
+        for distro in wsl_installed_distros(wsl):
+            if wsl_distro_is_internal(distro):
+                runner.log("Skipping internal WSL distro: " + distro)
+                continue
+            candidates.append((distro, distro))
+
+    seen: set[str] = set()
+    for label, distro in candidates:
+        key = distro or "<default>"
+        if key in seen:
+            continue
+        seen.add(key)
+        ok, detail = probe_wsl_coverage_distro(wsl, distro)
+        if ok:
+            runner.resolved_wsl_coverage_distro = distro or ""
+            runner.log("Selected WSL coverage distro: " + label + " (" + detail + ")")
+            return wsl, distro
+        runner.log("WSL distro is not usable for SSTL coverage: " + label + " (" + detail + ")")
+
+    if configured:
+        runner.log("Configured WSL distro was not usable for coverage: " + configured)
+    else:
+        runner.log("No coverage-capable WSL distro found. Install lcov in Ubuntu/Debian or pass --wsl-distro.")
+    return None
+
+
+def wsl_available(runner: Runner, record: bool = True) -> bool:
+    selected = select_wsl_distro(runner)
+    if not selected:
+        return False
+    wsl, distro = selected
+    cmd = wsl_command(
+        wsl,
+        distro,
+        "sh",
+        "-lc",
+        "uname -s && test -d testing && test -d include && command -v sh && command -v cmake && command -v ninja && command -v gcc && command -v g++ && command -v clang && command -v clang++",
+    )
+    if record:
+        return runner.run("wsl shell/tooling probe", cmd, ROOT, timeout=60)
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+        )
+    except Exception as exc:
+        runner.log("WSL shell/tooling probe failed during discovery: " + str(exc))
+        return False
+    if proc.returncode != 0:
+        detail = " ".join(line.strip() for line in decode_wsl_output(proc.stdout).splitlines() if line.strip())
+        runner.log("WSL shell/tooling probe failed during discovery: " + (detail or f"exit {proc.returncode}"))
+        return False
+    return True
+
+
+def wsl_coverage_available(runner: Runner, record: bool = True) -> bool:
+    selected = select_wsl_coverage_distro(runner)
+    if not selected:
+        return False
+    wsl, distro = selected
+    cmd = wsl_command(
+        wsl,
+        distro,
+        "sh",
+        "-lc",
+        "uname -s && test -d testing && test -d include && command -v sh && command -v cmake && command -v ninja && command -v gcc && command -v g++ && command -v lcov",
+    )
+    if record:
+        return runner.run("wsl coverage tooling probe", cmd, ROOT, timeout=60)
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+        )
+    except Exception as exc:
+        runner.log("WSL coverage tooling probe failed during discovery: " + str(exc))
+        return False
+    if proc.returncode != 0:
+        detail = " ".join(line.strip() for line in decode_wsl_output(proc.stdout).splitlines() if line.strip())
+        runner.log("WSL coverage tooling probe failed during discovery: " + (detail or f"exit {proc.returncode}"))
+        return False
+    return True
+
+
+def publish_wsl_text_file(runner: Runner, wsl: str, distro: str | None, source: str, target: Path, name: str) -> bool:
+    runner.log("")
+    runner.log("== " + name)
+    cmd = wsl_command(wsl, distro, "sh", "-lc", "cat " + quote_sh(source))
+    runner.log("+ " + runner.display_cmd(cmd))
+    if runner.dry_run:
+        runner.results.append(RunResult(name, True, 0, "dry-run"))
+        return True
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        runner.log("FAIL: " + name + " (timed out)")
+        runner.results.append(RunResult(name, False, -1, "timed out"))
+        return False
+    except Exception as exc:
+        runner.log("FAIL: " + name + f" ({exc})")
+        runner.results.append(RunResult(name, False, None, str(exc)))
+        return False
+    if proc.returncode != 0:
+        output = (proc.stdout or "").strip()
+        if output:
+            runner.log(output)
+        runner.log("FAIL: " + name + f" (exit {proc.returncode})")
+        runner.results.append(RunResult(name, False, proc.returncode, output))
+        return False
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(proc.stdout, encoding="utf-8")
+    except Exception as exc:
+        runner.log("FAIL: " + name + f" ({exc})")
+        runner.results.append(RunResult(name, False, None, str(exc)))
+        return False
+    runner.log("Wrote " + display_artifact_path(target))
+    runner.log("PASS: " + name)
+    runner.results.append(RunResult(name, True, 0, ""))
+    return True
+
+
+def wsl_temp_build_root(kind: str) -> str:
+    return "/tmp/sstl-" + kind
 
 
 def run_wsl_lanes(runner: Runner) -> bool:
-    wroot = win_path_to_wsl(ROOT)
+    selected = select_wsl_distro(runner)
+    if not selected:
+        return False
+    wsl, distro = selected
+    if not wsl_clean_testing_build_dirs(
+        runner,
+        wsl,
+        distro,
+        [
+            "build/host-debug",
+            "build/host-panic",
+            "build/host-ub",
+            "build/host-asan-ubsan",
+            "build/host-msan",
+            "build/host-tsan",
+            "build/host-freestanding-probes",
+            "build/host-libfuzzer",
+        ],
+        "wsl build directory cleanup",
+    ):
+        return False
+    wbuild = wsl_temp_build_root("validation")
+    base_cache = [quote_sh("-DCMAKE_BUILD_TYPE=Debug"), quote_sh("-DSSTL_ROOT=..")]
+
+    def configure_lane(build_name: str, extra_cache: list[str]) -> str:
+        args = " ".join(base_cache + [quote_sh(arg) for arg in extra_cache])
+        return "cmake -S . -B \"$build_root/" + build_name + "\" -G Ninja " + args + "; "
+
+    def build_lane(build_name: str) -> str:
+        return "cmake --build \"$build_root/" + build_name + "\"; "
+
+    def test_lane(build_name: str, extra: str = "") -> str:
+        return "ctest --test-dir \"$build_root/" + build_name + "\" --output-on-failure" + extra + "; "
+
     shell = (
         "set -e; "
-        "cd " + quote_sh(wroot + "/testing") + "; "
-        "if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; then "
-        "  if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build; "
-        "  else echo 'cmake/ninja not installed in WSL and no apt-get found'; exit 3; fi; "
+        "repo_root=$(pwd -P); "
+        "test_src=\"$repo_root/testing\"; "
+        "build_root=" + quote_sh(wbuild) + "; "
+        "artifacts_dir=\"$repo_root/artifacts\"; "
+        "cd \"$test_src\"; "
+        "if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1 || "
+        "! command -v gcc >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1 || "
+        "! command -v clang >/dev/null 2>&1 || ! command -v clang++ >/dev/null 2>&1; then "
+        "  echo 'WSL validation tools are missing. Install inside WSL with: " + WSL_TEST_TOOL_INSTALL + "'; "
+        "  exit 3; "
         "fi; "
-        "rm -rf build/host-debug build/host-panic build/host-ub build/host-freestanding-probes; "
-        "cmake --preset host-debug -DSSTL_ROOT=" + quote_sh(wroot) + "; "
-        "cmake --build --preset host-debug; "
-        "ctest --preset host-debug; "
-        "ctest --preset host-debug -R runtime_interface_comparison -V; "
-        "cmake --preset host-panic -DSSTL_ROOT=" + quote_sh(wroot) + "; "
-        "cmake --build --preset host-panic; "
-        "ctest --preset host-panic; "
-        "cmake --preset host-ub -DSSTL_ROOT=" + quote_sh(wroot) + "; "
-        "cmake --build --preset host-ub; "
-        "ctest --preset host-ub; "
-        "cmake --preset host-freestanding-probes -DSSTL_ROOT=" + quote_sh(wroot) + "; "
-        "cmake --build --preset host-freestanding-probes; "
-        "python3 scripts/mutation_smoke.py --root . --sstl-root " + quote_sh(wroot)
+        "rm -rf \"$build_root\"; "
+        "mkdir -p \"$build_root\"; "
+        + configure_lane("host-debug", ["-DSSTL_ERROR_POLICY=SSTL_RETURN"])
+        + build_lane("host-debug")
+        + test_lane("host-debug")
+        + test_lane("host-debug", " -R runtime_interface_comparison -V")
+        + "mkdir -p \"$artifacts_dir\"; "
+        + "runtime_csv=$(find \"$build_root/host-debug\" -name "
+        + quote_sh(RUNTIME_CSV_NAME)
+        + " -print -quit); "
+        + "if [ -n \"$runtime_csv\" ]; then cp \"$runtime_csv\" \"$artifacts_dir/"
+        + RUNTIME_CSV_NAME
+        + "\"; fi; "
+        + configure_lane("host-panic", ["-DSSTL_ERROR_POLICY=SSTL_PANIC"])
+        + build_lane("host-panic")
+        + test_lane("host-panic")
+        + configure_lane(
+            "host-ub",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_UB",
+                "-DCMAKE_C_FLAGS=-fsanitize=undefined -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=undefined -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=undefined",
+            ],
+        )
+        + build_lane("host-ub")
+        + test_lane("host-ub")
+        + configure_lane(
+            "host-asan-ubsan",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=gcc",
+                "-DCMAKE_CXX_COMPILER=g++",
+                "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined",
+            ],
+        )
+        + build_lane("host-asan-ubsan")
+        + test_lane("host-asan-ubsan")
+        + configure_lane(
+            "host-msan",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=clang",
+                "-DCMAKE_CXX_COMPILER=clang++",
+                "-DCMAKE_C_FLAGS=-fsanitize=memory -fPIE -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=memory -fPIE -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=memory -pie",
+                "-DSSTL_DISABLE_CPP_NOALLOC_AUDIT=ON",
+                "-DSSTL_ENABLE_MSAN=ON",
+                "-DSSTL_TEST_RUNNER=setarch x86_64 -R",
+            ],
+        )
+        + build_lane("host-msan")
+        + test_lane("host-msan")
+        + configure_lane(
+            "host-tsan",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=clang",
+                "-DCMAKE_CXX_COMPILER=clang++",
+                "-DCMAKE_C_FLAGS=-fsanitize=thread -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=thread -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread",
+                "-DSSTL_DISABLE_CPP_NOALLOC_AUDIT=ON",
+                "-DSSTL_TEST_RUNNER=setarch x86_64 -R",
+            ],
+        )
+        + build_lane("host-tsan")
+        + test_lane("host-tsan")
+        + configure_lane("host-freestanding-probes", ["-DSSTL_ERROR_POLICY=SSTL_RETURN", "-DSSTL_ENABLE_FREESTANDING_PROBES=ON"])
+        + build_lane("host-freestanding-probes")
+        + configure_lane(
+            "host-libfuzzer",
+            [
+                "-DSSTL_ERROR_POLICY=SSTL_RETURN",
+                "-DCMAKE_C_COMPILER=clang",
+                "-DCMAKE_CXX_COMPILER=clang++",
+                "-DCMAKE_C_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer",
+                "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined",
+                "-DSSTL_ENABLE_LIBFUZZER=ON",
+            ],
+        )
+        + build_lane("host-libfuzzer")
+        + "python3 scripts/mutation_smoke.py --root . --sstl-root .. --output \"$build_root/mutation_summary.yaml\""
     )
-    wsl = find_named_executable("wsl") or "wsl"
-    return runner.run("wsl gcc validation lanes", [wsl, "sh", "-lc", shell], ROOT, timeout=60 * 60)
+    ok = runner.run("wsl gcc validation lanes", wsl_command(wsl, distro, "sh", "-lc", shell), ROOT, timeout=60 * 60)
+    if ok:
+        ok = publish_wsl_text_file(
+            runner,
+            wsl,
+            distro,
+            wbuild + "/mutation_summary.yaml",
+            TEST_ROOT / "manifests" / "mutation_summary.yaml",
+            "wsl mutation summary publish",
+        )
+    return ok
+
+
+def wsl_clean_testing_build_dirs(
+    runner: Runner,
+    wsl: str,
+    distro: str | None,
+    dirs: list[str],
+    name: str,
+) -> bool:
+    quoted_dirs = " ".join(quote_sh(path) for path in dirs)
+    shell = (
+        "set -e; "
+        "test -d testing || { echo 'checkout is not visible from WSL inherited cwd'; exit 3; }; "
+        "cd testing; "
+        "set -- " + quoted_dirs + "; "
+        "for d in \"$@\"; do "
+        "  case \"$d\" in "
+        "    build/*) if [ -e \"$d\" ]; then rm -rf -- \"$d\"; fi ;; "
+        "    *) printf '%s\\n' \"refusing unsafe cleanup path: [$d]\"; exit 2 ;; "
+        "  esac; "
+        "done"
+    )
+    return runner.run(name, wsl_command(wsl, distro, "-u", "root", "sh", "-lc", shell), ROOT, timeout=10 * 60)
 
 
 def quote_sh(value: str) -> str:
@@ -787,6 +1498,10 @@ def quote_sh(value: str) -> str:
 
 def coverage_info_path() -> Path:
     return TEST_ROOT / "build" / "coverage" / COVERAGE_INFO_NAME
+
+
+def coverage_raw_info_path() -> Path:
+    return TEST_ROOT / "build" / "coverage" / "sstl_coverage.info"
 
 
 def coverage_lcov_capture_log_path() -> Path:
@@ -799,6 +1514,10 @@ def coverage_lcov_filter_log_path() -> Path:
 
 def lcov_shell_runner() -> str:
     return (
+        "lcov_filter_args=''; "
+        "if lcov --help 2>&1 | grep -q -- '--filter'; then "
+        "lcov_filter_args='--filter branch,exception,orphan'; "
+        "fi; "
         "run_lcov_quiet() { "
         "log=\"$1\"; shift; "
         "if ! \"$@\" >\"$log\" 2>&1; then "
@@ -814,6 +1533,13 @@ def display_coverage_path(path: str) -> str:
     normalized = path.replace("\\", "/")
     if normalized.startswith("/work/"):
         return normalized[len("/work/") :]
+    if ROOT.drive:
+        root_rest = str(ROOT.resolve())[len(ROOT.drive) :].replace("\\", "/").lstrip("/")
+        wsl_root = "/mnt/" + ROOT.drive.rstrip(":").lower() + "/" + root_rest
+        if normalized.lower() == wsl_root.lower():
+            return "."
+        if normalized.lower().startswith(wsl_root.lower() + "/"):
+            return normalized[len(wsl_root) + 1 :]
     try:
         p = Path(path)
         if p.is_absolute():
@@ -992,16 +1718,20 @@ def write_coverage_summary_manifest(report: CoverageReport) -> None:
     out.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
-def log_coverage_report(runner: Runner, path: Path | None = None) -> bool:
+def log_coverage_report(runner: Runner, path: Path | None = None, enforce_thresholds: bool = True, note: str = "") -> bool:
     artifact = path or newest_coverage_artifact()
     if not artifact:
         runner.log("")
         runner.log("== Coverage report")
-        runner.log("No coverage artifact was found. Run with --coverage-only or use the GUI Coverage Report button.")
+        runner.log("No coverage artifact was found. Run with --coverage-only or use the GUI Coverage row.")
         runner.results.append(RunResult("coverage report", False, None, "no coverage artifact found"))
         return False
     report = parse_lcov_info(artifact)
     try:
+        for log_name in (COVERAGE_LCOV_CAPTURE_LOG_NAME, COVERAGE_LCOV_FILTER_LOG_NAME):
+            log_path = artifact.parent / log_name
+            if log_path.exists():
+                publish_to_artifacts(log_path, log_name)
         published = publish_to_artifacts(artifact, COVERAGE_INFO_NAME)
         report = parse_lcov_info(published)
     except Exception as exc:
@@ -1009,31 +1739,80 @@ def log_coverage_report(runner: Runner, path: Path | None = None) -> bool:
     write_coverage_summary_manifest(report)
     for line in coverage_report_lines(report, runner.color_enabled):
         runner.log(line)
-    detail = "thresholds passed" if report.status == "pass" else "thresholds failed"
-    runner.results.append(RunResult("coverage report", report.status == "pass", 0 if report.status == "pass" else 1, detail))
+    if note:
+        runner.log("Note: " + note)
+    if enforce_thresholds:
+        detail = "thresholds passed" if report.status == "pass" else "thresholds failed"
+        runner.results.append(RunResult("coverage report", report.status == "pass", 0 if report.status == "pass" else 1, detail))
+    else:
+        detail = "thresholds reported only" if report.status != "pass" else "thresholds passed"
+        runner.results.append(RunResult("coverage report", True, 0, detail))
     return True
 
 
+def publish_container_file(runner: Runner, engine_path: str, container_name: str, source: str, target: Path, name: str) -> bool:
+    if runner.dry_run:
+        return runner.run(
+            name,
+            [engine_path, "cp", container_name + ":" + source, str(target)],
+            ROOT,
+            timeout=120,
+        )
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp_dir = Path(tempfile.mkdtemp(prefix="sstl-container-copy-"))
+    except Exception as exc:
+        runner.log("FAIL: " + name + f" ({exc})")
+        runner.results.append(RunResult(name, False, None, str(exc)))
+        return False
+    temp_target = temp_dir / target.name
+    ok = runner.run(
+        name,
+        [engine_path, "cp", container_name + ":" + source, str(temp_target)],
+        ROOT,
+        timeout=120,
+    )
+    if ok:
+        try:
+            target.write_bytes(temp_target.read_bytes())
+            runner.log("Wrote " + display_artifact_path(target))
+        except Exception as exc:
+            runner.log("FAIL: " + name + " publish write (" + str(exc) + ")")
+            runner.results.append(RunResult(name + " publish write", False, None, str(exc)))
+            ok = False
+    try:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    except Exception:
+        pass
+    return ok
+
+
 def run_container_coverage(runner: Runner, engine: str) -> bool:
-    engine_path = find_named_executable(engine) or engine
+    engine_path = find_container_engine_executable(engine) or engine
+    build_dir = "/tmp/sstl-coverage"
+    container_name = "sstl-coverage-" + engine + "-" + str(os.getpid()) + "-" + str(int(time.time()))
     shell = (
         "set -e; "
         "apt-get update >/dev/null; "
-        "apt-get install -y --no-install-recommends cmake ninja-build lcov >/dev/null; "
-        "rm -rf testing/build/coverage; "
-        "cmake -S testing -B testing/build/coverage -G Ninja -DSSTL_ROOT=/work -DSSTL_ENABLE_COVERAGE=ON; "
-        "cmake --build testing/build/coverage; "
-        "ctest --test-dir testing/build/coverage --output-on-failure; "
+        "apt-get install -y --no-install-recommends cmake ninja-build g++ lcov >/dev/null; "
+        "build_dir=" + quote_sh(build_dir) + "; "
+        "cd /work; "
+        "rm -rf \"$build_dir\"; "
+        "mkdir -p \"$build_dir\"; "
+        "cmake -S testing -B \"$build_dir\" -G Ninja -DSSTL_ROOT=. -DSSTL_ENABLE_COVERAGE=ON; "
+        "cmake --build \"$build_dir\"; "
+        "ctest --test-dir \"$build_dir\" --output-on-failure; "
         + lcov_shell_runner()
-        + "run_lcov_quiet testing/build/coverage/"
+        + "run_lcov_quiet \"$build_dir/"
         + COVERAGE_LCOV_CAPTURE_LOG_NAME
-        + " lcov --capture --directory testing/build/coverage --output-file testing/build/coverage/sstl_coverage.info "
+        + "\" lcov --capture --directory \"$build_dir\" --output-file \"$build_dir/sstl_coverage.info\" "
         + LCOV_BRANCH_RC_SHELL
         + "; "
-        "run_lcov_quiet testing/build/coverage/"
+        "run_lcov_quiet \"$build_dir/"
         + COVERAGE_LCOV_FILTER_LOG_NAME
-        + " lcov --remove testing/build/coverage/sstl_coverage.info '/usr/*' '*/testing/*' "
-        "--output-file testing/build/coverage/sstl_coverage.filtered.info "
+        + "\" lcov --remove \"$build_dir/sstl_coverage.info\" '/usr/*' '*/testing/*' "
+        "${lcov_filter_args} "
+        "--output-file \"$build_dir/sstl_coverage.filtered.info\" "
         + LCOV_BRANCH_RC_SHELL
     )
     ok = runner.run(
@@ -1041,7 +1820,8 @@ def run_container_coverage(runner: Runner, engine: str) -> bool:
         [
             engine_path,
             "run",
-            "--rm",
+            "--name",
+            container_name,
             "-v",
             container_mount_arg(),
             "-w",
@@ -1055,39 +1835,108 @@ def run_container_coverage(runner: Runner, engine: str) -> bool:
         timeout=60 * 60,
     )
     if ok:
-        log_coverage_report(runner, coverage_info_path())
-    return ok
+        ok = publish_container_file(runner, engine_path, container_name, build_dir + "/sstl_coverage.info", coverage_raw_info_path(), f"{engine} publish raw coverage info")
+        ok = publish_container_file(runner, engine_path, container_name, build_dir + "/sstl_coverage.filtered.info", coverage_info_path(), f"{engine} publish filtered coverage info") and ok
+        ok = publish_container_file(
+            runner,
+            engine_path,
+            container_name,
+            build_dir + "/" + COVERAGE_LCOV_CAPTURE_LOG_NAME,
+            coverage_lcov_capture_log_path(),
+            f"{engine} publish coverage capture log",
+        ) and ok
+        ok = publish_container_file(
+            runner,
+            engine_path,
+            container_name,
+            build_dir + "/" + COVERAGE_LCOV_FILTER_LOG_NAME,
+            coverage_lcov_filter_log_path(),
+            f"{engine} publish coverage filter log",
+        ) and ok
+        if ok:
+            if runner.dry_run:
+                log_coverage_report(
+                    runner,
+                    enforce_thresholds=False,
+                    note="Dry-run used the newest existing coverage artifact and did not gate thresholds.",
+                )
+            else:
+                log_coverage_report(runner, coverage_info_path())
+    remove_ok = runner.run(f"{engine} remove coverage container", [engine_path, "rm", "-f", container_name], ROOT, timeout=120)
+    return ok and remove_ok
 
 
 def run_wsl_coverage(runner: Runner) -> bool:
-    wroot = win_path_to_wsl(ROOT)
+    selected = select_wsl_coverage_distro(runner)
+    if not selected:
+        return False
+    wsl, distro = selected
+    if not wsl_clean_testing_build_dirs(runner, wsl, distro, ["build/coverage"], "wsl coverage build directory cleanup"):
+        return False
+    wbuild = wsl_temp_build_root("coverage")
     shell = (
         "set -e; "
-        "cd " + quote_sh(wroot) + "; "
-        "if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1 || ! command -v lcov >/dev/null 2>&1; then "
-        "  if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build lcov; "
-        "  else echo 'cmake/ninja/lcov not installed in WSL and no apt-get found'; exit 3; fi; "
+        "sstl_root=$(pwd -P); "
+        "build_dir=" + quote_sh(wbuild) + "; "
+        "cd \"$sstl_root\"; "
+        "if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1 || "
+        "! command -v gcc >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1 || "
+        "! command -v lcov >/dev/null 2>&1; then "
+        "  echo 'WSL coverage tools are missing. Install inside WSL with: " + WSL_COVERAGE_TOOL_INSTALL + "'; "
+        "  exit 3; "
         "fi; "
-        "rm -rf testing/build/coverage; "
-        "cmake -S testing -B testing/build/coverage -G Ninja -DSSTL_ROOT=" + quote_sh(wroot) + " -DSSTL_ENABLE_COVERAGE=ON; "
-        "cmake --build testing/build/coverage; "
-        "ctest --test-dir testing/build/coverage --output-on-failure; "
+        "rm -rf \"$build_dir\"; "
+        "mkdir -p \"$build_dir\"; "
+        "cmake -S testing -B \"$build_dir\" -G Ninja -DSSTL_ROOT=. -DSSTL_ENABLE_COVERAGE=ON; "
+        "cmake --build \"$build_dir\"; "
+        "ctest --test-dir \"$build_dir\" --output-on-failure; "
         + lcov_shell_runner()
-        + "run_lcov_quiet testing/build/coverage/"
+        + "run_lcov_quiet \"$build_dir/"
         + COVERAGE_LCOV_CAPTURE_LOG_NAME
-        + " lcov --capture --directory testing/build/coverage --output-file testing/build/coverage/sstl_coverage.info "
+        + "\" lcov --capture --directory \"$build_dir\" --output-file \"$build_dir/sstl_coverage.info\" "
         + LCOV_BRANCH_RC_SHELL
         + "; "
-        "run_lcov_quiet testing/build/coverage/"
+        "run_lcov_quiet \"$build_dir/"
         + COVERAGE_LCOV_FILTER_LOG_NAME
-        + " lcov --remove testing/build/coverage/sstl_coverage.info '/usr/*' '*/testing/*' "
-        "--output-file testing/build/coverage/sstl_coverage.filtered.info "
+        + "\" lcov --remove \"$build_dir/sstl_coverage.info\" '/usr/*' '*/testing/*' "
+        "${lcov_filter_args} "
+        "--output-file \"$build_dir/sstl_coverage.filtered.info\" "
         + LCOV_BRANCH_RC_SHELL
     )
-    wsl = find_named_executable("wsl") or "wsl"
-    ok = runner.run("wsl coverage lane", [wsl, "sh", "-lc", shell], ROOT, timeout=60 * 60)
+    ok = runner.run("wsl coverage lane", wsl_command(wsl, distro, "sh", "-lc", shell), ROOT, timeout=60 * 60)
     if ok:
-        log_coverage_report(runner, coverage_info_path())
+        ok = publish_wsl_text_file(runner, wsl, distro, wbuild + "/sstl_coverage.info", coverage_raw_info_path(), "wsl publish raw coverage info")
+        ok = publish_wsl_text_file(runner, wsl, distro, wbuild + "/sstl_coverage.filtered.info", coverage_info_path(), "wsl publish filtered coverage info") and ok
+        ok = publish_wsl_text_file(
+            runner,
+            wsl,
+            distro,
+            wbuild + "/" + COVERAGE_LCOV_CAPTURE_LOG_NAME,
+            coverage_lcov_capture_log_path(),
+            "wsl publish coverage capture log",
+        ) and ok
+        ok = publish_wsl_text_file(
+            runner,
+            wsl,
+            distro,
+            wbuild + "/" + COVERAGE_LCOV_FILTER_LOG_NAME,
+            coverage_lcov_filter_log_path(),
+            "wsl publish coverage filter log",
+        ) and ok
+        if ok:
+            if runner.dry_run:
+                log_coverage_report(
+                    runner,
+                    enforce_thresholds=False,
+                    note="WSL coverage uses the host distro compiler and reports thresholds without gating the command result.",
+                )
+            else:
+                log_coverage_report(
+                    runner,
+                    coverage_info_path(),
+                    enforce_thresholds=False,
+                    note="WSL coverage uses the host distro compiler and reports thresholds without gating the command result.",
+                )
     return ok
 
 
@@ -1098,10 +1947,10 @@ def run_local_coverage(runner: Runner) -> bool:
     if not cmake or not ctest or not lcov:
         runner.log("Local coverage requires CMake, CTest, and lcov. Showing any existing coverage artifact instead.")
         return log_coverage_report(runner)
-    build_dir = TEST_ROOT / "build" / "coverage"
+    build_dir = Path("testing") / "build" / "coverage"
     ok = runner.run(
         "local coverage configure",
-        [cmake, "-S", str(TEST_ROOT), "-B", str(build_dir), "-DSSTL_ROOT=" + str(SSTL_ROOT), "-DSSTL_ENABLE_COVERAGE=ON"],
+        [cmake, "-S", "testing", "-B", str(build_dir), "-DSSTL_ROOT=.", "-DSSTL_ENABLE_COVERAGE=ON"],
         ROOT,
     )
     if not ok:
@@ -1136,16 +1985,16 @@ def run_local_coverage(runner: Runner) -> bool:
 
 
 def run_local_lane(runner: Runner, cmake: str, ctest: str, build_name: str, policy: str) -> bool:
-    build_dir = TEST_ROOT / "build" / build_name
+    build_dir = Path("testing") / "build" / build_name
     ok = runner.run(
         f"local configure {policy}",
         [
             cmake,
             "-S",
-            str(TEST_ROOT),
+            "testing",
             "-B",
             str(build_dir),
-            "-DSSTL_ROOT=" + str(SSTL_ROOT),
+            "-DSSTL_ROOT=.",
             "-DSSTL_ERROR_POLICY=" + policy,
         ],
         ROOT,
@@ -1184,23 +2033,72 @@ def run_local_lanes(runner: Runner) -> bool:
 def local_available(runner: Runner) -> bool:
     cmake = find_cmake()
     ctest = find_ctest(cmake)
-    if cmake and ctest:
-        runner.log(f"Local CMake found: {cmake}")
-        runner.log(f"Local CTest found: {ctest}")
+    if not cmake or not ctest:
+        runner.log("Local CMake/CTest toolchain was not found.")
+        return False
+    runner.log(f"Local CMake found: {cmake}")
+    runner.log(f"Local CTest found: {ctest}")
+    if runner.dry_run:
+        runner.log("Local C/C++ sanity probe skipped in dry-run mode.")
         return True
-    runner.log("Local CMake/CTest toolchain was not found.")
+    ok, detail = local_sanity_probe(cmake, ctest, coverage=False)
+    if ok:
+        runner.log("Local C/C++ sanity probe passed: " + detail)
+        return True
+    runner.log("Local C/C++ sanity probe failed: " + detail)
+    return False
+
+
+def local_coverage_available(runner: Runner) -> bool:
+    cmake = find_cmake()
+    ctest = find_ctest(cmake)
+    lcov = find_named_executable("lcov")
+    missing: list[str] = []
+    if not cmake:
+        missing.append("CMake")
+    if not ctest:
+        missing.append("CTest")
+    if not lcov:
+        missing.append("lcov")
+    if missing:
+        runner.log("Local coverage toolchain was not found: missing " + ", ".join(missing) + ".")
+        return False
+    runner.log(f"Local CMake found: {cmake}")
+    runner.log(f"Local CTest found: {ctest}")
+    runner.log(f"Local lcov found: {lcov}")
+    if runner.dry_run:
+        runner.log("Local coverage sanity probe skipped in dry-run mode.")
+        return True
+    ok, detail = local_sanity_probe(cmake, ctest, coverage=True)
+    if ok:
+        runner.log("Local coverage sanity probe passed: " + detail)
+        return True
+    runner.log("Local coverage sanity probe failed: " + detail)
     return False
 
 
 def discover_backends(runner: Runner) -> list[str]:
     candidates: list[str] = []
-    if executable_available(runner, "docker"):
+    if container_engine_available(runner, "docker", record=False):
         candidates.append("docker")
-    if executable_available(runner, "podman"):
+    if container_engine_available(runner, "podman", record=False):
         candidates.append("podman")
-    if wsl_available(runner):
+    if wsl_available(runner, record=False):
         candidates.append("wsl")
     if local_available(runner):
+        candidates.append("local")
+    return candidates
+
+
+def discover_coverage_backends(runner: Runner) -> list[str]:
+    candidates: list[str] = []
+    if container_engine_available(runner, "docker", record=False):
+        candidates.append("docker")
+    if container_engine_available(runner, "podman", record=False):
+        candidates.append("podman")
+    if wsl_coverage_available(runner, record=False):
+        candidates.append("wsl")
+    if local_coverage_available(runner):
         candidates.append("local")
     return candidates
 
@@ -1226,7 +2124,7 @@ def install_options() -> list[InstallOption]:
                 [[winget, "install", "--id", "RedHat.Podman-Desktop", "-e"]],
                 [
                     "Usually easier than manual Podman setup, but it may still require interactive prompts.",
-                    "After installation, start Podman Desktop once before rerunning tests.",
+                    "After installation, start Podman Desktop once or run podman machine init && podman machine start before rerunning tests.",
                 ],
             ))
             opts.append(InstallOption(
@@ -1258,7 +2156,7 @@ def install_options() -> list[InstallOption]:
             [[find_named_executable("wsl") or "wsl", "--install", "-d", "Ubuntu"]],
             [
                 "May require administrator approval and a reboot.",
-                "After first Ubuntu launch, install tools inside WSL: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ python3",
+                    "After first Ubuntu launch, install validation and coverage tools inside WSL: " + WSL_TEST_TOOL_INSTALL,
             ],
         ))
         return opts
@@ -1327,14 +2225,49 @@ def install_options() -> list[InstallOption]:
     return opts
 
 
-def recommendation_lines() -> list[str]:
+def recommendation_lines(backend: str = "auto") -> list[str]:
+    if backend in ("docker", "podman"):
+        ok, resolved, detail = container_engine_probe(backend, timeout=10)
+        if resolved and not ok:
+            if backend == "podman":
+                return [
+                    "Podman is installed, but its Linux VM/socket is not reachable.",
+                    "Recommended setup commands:",
+                    "  podman machine list",
+                    "  podman machine init",
+                    "  podman machine start",
+                    "After that, rerun tests or verify with: podman info",
+                    "Diagnostic: " + detail,
+                ]
+            return [
+                "Docker is installed, but the Docker engine is not reachable.",
+                "Start Docker Desktop, wait until it reports the engine is running, then rerun tests.",
+                "You can verify with: docker info",
+                "Diagnostic: " + detail,
+            ]
+
+    if backend == "wsl":
+        wsl = find_named_executable("wsl")
+        if wsl and wsl_installed_distros(wsl):
+            return [
+                "WSL is installed, but no non-internal distro with required SSTL tools was found.",
+                "Install tools inside your Ubuntu/Debian WSL distro, then rerun tests:",
+                "  " + WSL_TEST_TOOL_INSTALL,
+                "Verify inside WSL with:",
+                "  command -v cmake && command -v ninja && command -v gcc && command -v g++ && command -v clang && command -v clang++ && command -v lcov",
+            ]
+
     opts = install_options()
+    if backend != "auto":
+        opts = [opt for opt in opts if opt.backend == backend]
     if not opts:
-        return [
-            "No automatic installer was detected.",
-            "Install one of: Docker/Podman, WSL2 on Windows, or a local CMake + C/C++ compiler + Ninja toolchain.",
-        ]
-    lines = ["Recommended install options:"]
+        if backend == "auto":
+            return [
+                "No automatic installer was detected.",
+                "Install one of: Docker/Podman, WSL2 on Windows, or a local CMake + C/C++ compiler + Ninja toolchain.",
+            ]
+        return [f"No automatic installer was detected for backend {backend}."]
+    lines = ["Recommended install options:" if backend == "auto" else f"Recommended install options for backend {backend}:"]
     for i, opt in enumerate(opts, 1):
         lines.append(f"  {i}. {opt.name} -> backend {opt.backend}")
         if opt.commands:
@@ -1346,22 +2279,11 @@ def recommendation_lines() -> list[str]:
     return lines
 
 
-def print_recommendations(runner: Runner) -> None:
+def print_recommendations(runner: Runner, backend: str = "auto") -> None:
     runner.log("")
     runner.log("== Install recommendations")
-    for line in recommendation_lines():
+    for line in recommendation_lines(backend):
         runner.log(line)
-
-
-def ask_yes_no(prompt: str, default: bool = False) -> bool:
-    suffix = " [Y/n] " if default else " [y/N] "
-    try:
-        answer = input(prompt + suffix).strip().lower()
-    except EOFError:
-        return False
-    if not answer:
-        return default
-    return answer in ("y", "yes")
 
 
 def install_option(runner: Runner, option: InstallOption) -> bool:
@@ -1385,14 +2307,174 @@ def maybe_install_missing(runner: Runner, backend: str, assume_yes: bool) -> boo
     if backend != "auto":
         opts = [opt for opt in opts if opt.backend == backend]
     if not opts:
-        print_recommendations(runner)
+        print_recommendations(runner, backend)
         return False
-    print_recommendations(runner)
+    print_recommendations(runner, backend)
     option = opts[0]
     if not assume_yes and not ask_yes_no(f"Install '{option.name}' now?", default=False):
         runner.log("Install declined.")
         return False
     return install_option(runner, option)
+
+
+def should_prepare(runner: Runner, message: str, assume_yes: bool) -> bool:
+    if assume_yes or runner.dry_run:
+        return True
+    if ask_yes_no(message, default=False):
+        return True
+    runner.log("Preparation declined: " + message)
+    return False
+
+
+def maybe_install_for_prepare(runner: Runner, backend: str, assume_yes_install: bool) -> bool:
+    before = len(runner.results)
+    ok = maybe_install_missing(runner, backend, assume_yes_install)
+    if not ok and len(runner.results) == before:
+        runner.results.append(RunResult("prepare " + backend, False, None, "not installed"))
+    return ok
+
+
+def prepare_docker_backend(runner: Runner, assume_yes_prepare: bool, install_missing: bool, assume_yes_install: bool) -> bool:
+    ok, _, detail = container_engine_probe("docker", timeout=10)
+    if ok:
+        runner.log("Docker engine is already reachable.")
+        runner.results.append(RunResult("prepare docker", True, 0, "already reachable"))
+        return True
+    docker = find_container_engine_executable("docker")
+    if not docker:
+        runner.log("Docker executable was not found.")
+        if install_missing:
+            return maybe_install_for_prepare(runner, "docker", assume_yes_install)
+        runner.results.append(RunResult("prepare docker", False, None, "executable not found"))
+        return False
+    desktop = find_docker_desktop_executable()
+    if not desktop:
+        runner.log("Docker is installed, but Docker Desktop could not be found. Start the Docker daemon/Desktop manually.")
+        runner.results.append(RunResult("prepare docker", False, None, detail))
+        return False
+    if not should_prepare(runner, "Start Docker Desktop and wait for the engine?", assume_yes_prepare):
+        runner.results.append(RunResult("prepare docker", False, None, "declined"))
+        return False
+    runner.log("")
+    runner.log("== start Docker Desktop")
+    runner.log("+ " + desktop)
+    if not runner.dry_run:
+        try:
+            subprocess.Popen([desktop], cwd=str(ROOT), close_fds=True)
+        except Exception as exc:
+            runner.log("FAIL: start Docker Desktop (" + str(exc) + ")")
+            runner.results.append(RunResult("start Docker Desktop", False, None, str(exc)))
+            return False
+    runner.results.append(RunResult("start Docker Desktop", True, 0, "started" if not runner.dry_run else "dry-run"))
+    return wait_for_container_engine(runner, "docker", timeout=180)
+
+
+def prepare_podman_backend(runner: Runner, assume_yes_prepare: bool, install_missing: bool, assume_yes_install: bool) -> bool:
+    ok, _, detail = container_engine_probe("podman", timeout=10)
+    if ok:
+        runner.log("Podman engine is already reachable.")
+        runner.results.append(RunResult("prepare podman", True, 0, "already reachable"))
+        return True
+    podman = find_container_engine_executable("podman")
+    if not podman:
+        runner.log("Podman executable was not found.")
+        if install_missing:
+            return maybe_install_for_prepare(runner, "podman", assume_yes_install)
+        runner.results.append(RunResult("prepare podman", False, None, "executable not found"))
+        return False
+    if not should_prepare(runner, "Initialize/start a Podman machine?", assume_yes_prepare):
+        runner.results.append(RunResult("prepare podman", False, None, "declined"))
+        return False
+    list_ok, list_output = run_prepare_capture(runner, "podman machine list", [podman, "machine", "list"], timeout=120)
+    if not list_ok:
+        return False
+    if not podman_machine_exists(list_output):
+        if not run_prepare_capture(runner, "podman machine init", [podman, "machine", "init"], timeout=20 * 60)[0]:
+            return False
+    if not run_prepare_capture(runner, "podman machine start", [podman, "machine", "start"], timeout=20 * 60)[0]:
+        return False
+    return wait_for_container_engine(runner, "podman", timeout=180)
+
+
+def prepare_wsl_backend(runner: Runner, assume_yes_prepare: bool, install_missing: bool, assume_yes_install: bool) -> bool:
+    if runner.dry_run:
+        wsl = find_named_executable("wsl")
+        if not wsl:
+            runner.log("wsl executable was not found.")
+            runner.results.append(RunResult("prepare wsl", False, None, "wsl executable not found"))
+            return False
+        distro = runner.wsl_distro.strip() or None
+        if not distro:
+            for candidate in wsl_installed_distros(wsl):
+                if not wsl_distro_is_internal(candidate):
+                    distro = candidate
+                    break
+        return runner.run(
+            "wsl install validation and coverage tools",
+            wsl_command(wsl, distro, "-u", "root", "sh", "-lc", WSL_TEST_TOOL_INSTALL_ROOT),
+            ROOT,
+            timeout=60 * 60,
+        )
+    validation_selected = select_wsl_distro(runner)
+    coverage_selected = select_wsl_coverage_distro(runner)
+    if validation_selected and coverage_selected:
+        runner.results.append(RunResult("prepare wsl", True, 0, "already ready"))
+        return True
+    installable = wsl_installable_distro(runner)
+    if not installable:
+        if install_missing:
+            return maybe_install_for_prepare(runner, "wsl", assume_yes_install)
+        runner.results.append(RunResult("prepare wsl", False, None, "no installable WSL distro"))
+        return False
+    if not should_prepare(runner, "Install cmake, ninja, gcc/g++, clang/clang++, lcov, and support tools inside WSL as root?", assume_yes_prepare):
+        runner.results.append(RunResult("prepare wsl", False, None, "declined"))
+        return False
+    wsl, distro = installable
+    ok = runner.run(
+        "wsl install validation and coverage tools",
+        wsl_command(wsl, distro, "-u", "root", "sh", "-lc", WSL_TEST_TOOL_INSTALL_ROOT),
+        ROOT,
+        timeout=60 * 60,
+    )
+    if not ok:
+        return False
+    runner.resolved_wsl_distro = None
+    runner.resolved_wsl_coverage_distro = None
+    return wsl_available(runner) and wsl_coverage_available(runner)
+
+
+def prepare_local_backend(runner: Runner, assume_yes_prepare: bool, install_missing: bool, assume_yes_install: bool) -> bool:
+    del assume_yes_prepare
+    if local_available(runner):
+        runner.results.append(RunResult("prepare local", True, 0, "already ready"))
+        return True
+    if install_missing:
+        return maybe_install_for_prepare(runner, "local", assume_yes_install)
+    runner.results.append(RunResult("prepare local", False, None, "toolchain not found"))
+    return False
+
+
+def prepare_selected_backends(
+    runner: Runner,
+    backend: str,
+    assume_yes_prepare: bool,
+    install_missing: bool = False,
+    assume_yes_install: bool = False,
+) -> int:
+    targets = [backend] if backend != "auto" else ["docker", "podman", "wsl", "local"]
+    ok = True
+    for target in targets:
+        if target == "docker":
+            ok = prepare_docker_backend(runner, assume_yes_prepare, install_missing, assume_yes_install) and ok
+        elif target == "podman":
+            ok = prepare_podman_backend(runner, assume_yes_prepare, install_missing, assume_yes_install) and ok
+        elif target == "wsl":
+            ok = prepare_wsl_backend(runner, assume_yes_prepare, install_missing, assume_yes_install) and ok
+        elif target == "local":
+            ok = prepare_local_backend(runner, assume_yes_prepare, install_missing, assume_yes_install) and ok
+    if not runner.results:
+        runner.results.append(RunResult("prepare backends", ok, 0 if ok else 1, "no preparation commands were needed"))
+    return runner.summary()
 
 
 def ask_cli_backend(default: str) -> str:
@@ -1408,9 +2490,9 @@ def ask_cli_backend(default: str) -> str:
 
 def run_backend(runner: Runner, backend: str) -> bool:
     if backend == "docker":
-        return executable_available(runner, "docker") and run_container_lanes(runner, "docker")
+        return container_engine_available(runner, "docker", record=True) and run_container_lanes(runner, "docker")
     if backend == "podman":
-        return executable_available(runner, "podman") and run_container_lanes(runner, "podman")
+        return container_engine_available(runner, "podman", record=True) and run_container_lanes(runner, "podman")
     if backend == "wsl":
         return wsl_available(runner) and run_wsl_lanes(runner)
     if backend == "local":
@@ -1420,19 +2502,83 @@ def run_backend(runner: Runner, backend: str) -> bool:
 
 def run_coverage_backend(runner: Runner, backend: str) -> bool:
     if backend == "docker":
-        return executable_available(runner, "docker") and run_container_coverage(runner, "docker")
+        return container_engine_available(runner, "docker", record=True) and run_container_coverage(runner, "docker")
     if backend == "podman":
-        return executable_available(runner, "podman") and run_container_coverage(runner, "podman")
+        return container_engine_available(runner, "podman", record=True) and run_container_coverage(runner, "podman")
     if backend == "wsl":
-        return wsl_available(runner) and run_wsl_coverage(runner)
+        return wsl_coverage_available(runner) and run_wsl_coverage(runner)
     if backend == "local":
-        return run_local_coverage(runner)
+        return local_coverage_available(runner) and run_local_coverage(runner)
     raise ValueError(backend)
+
+
+def vendor_container_nominee_lines() -> list[str]:
+    lines = ["Available vendor container nominees:"]
+    for name, (key, label, image) in VENDOR_CONTAINER_NOMINEES.items():
+        lines.append(f"  {name}: {key}@{label}={image}")
+    return lines
+
+
+def expand_vendor_container_nominees(use_all: bool, selected: list[str]) -> list[str]:
+    names: list[str] = []
+    if use_all:
+        names.extend(VENDOR_CONTAINER_NOMINEES.keys())
+    names.extend(selected)
+
+    expanded: list[str] = []
+    for name in names:
+        if name not in VENDOR_CONTAINER_NOMINEES:
+            valid = ", ".join(VENDOR_CONTAINER_NOMINEES.keys())
+            raise ValueError("unknown vendor container nominee: " + name + ". Valid nominees: " + valid)
+        key, label, image = VENDOR_CONTAINER_NOMINEES[name]
+        expanded.append(f"{key}@{label}={image}")
+    return expanded
+
+
+def run_vendor_compiler_lanes(
+    runner: Runner,
+    enable_container_images: bool,
+    container_images: list[str],
+    container_engine: str,
+    container_pull: str,
+    container_pull_timeout: int,
+) -> bool:
+    cmd = [
+        sys.executable,
+        "-B",
+        str(Path("testing") / "scripts" / "vendor_compiler_lanes.py"),
+        "--root",
+        "testing",
+        "--sstl-root",
+        ".",
+        "--timeout",
+        str(runner.timeout_seconds),
+    ]
+    if enable_container_images or container_images:
+        cmd.append("--enable-container-images")
+        cmd.extend(["--container-engine", container_engine])
+        cmd.extend(["--container-pull", container_pull])
+        cmd.extend(["--container-pull-timeout", str(container_pull_timeout)])
+        for image in container_images:
+            cmd.extend(["--container-image", image])
+    return runner.run("vendor compiler lanes", cmd, ROOT, timeout=runner.timeout_seconds)
+
+
+def resolve_vendor_container_engine(requested: str, backend: str) -> str:
+    if requested:
+        return requested
+    if backend in ("docker", "podman"):
+        return backend
+    if container_engine_probe("docker", timeout=10)[0]:
+        return "docker"
+    if container_engine_probe("podman", timeout=10)[0]:
+        return "podman"
+    return "docker"
 
 
 def run_coverage_selected(runner: Runner, backend: str) -> bool:
     if backend == "auto":
-        backends = discover_backends(runner)
+        backends = discover_coverage_backends(runner)
         if not backends:
             print_recommendations(runner)
             return log_coverage_report(runner)
@@ -1459,6 +2605,8 @@ def run_selected(runner: Runner, backend: str, install_missing: bool = False, as
                 backends = discover_backends(runner)
             if not backends:
                 print_recommendations(runner)
+                if not runner.results:
+                    runner.results.append(RunResult("backend discovery", False, None, "no usable backend found"))
                 return runner.summary()
         runner.log("")
         runner.log("Auto-selected backend order: " + ", ".join(backends))
@@ -1467,6 +2615,7 @@ def run_selected(runner: Runner, backend: str, install_missing: bool = False, as
             runner.log("Trying backend: " + candidate)
             before = len(runner.results)
             if run_backend(runner, candidate):
+                runner.last_successful_backend = candidate
                 publish_newest_runtime_csv(runner)
                 return runner.summary()
             if candidate != backends[-1]:
@@ -1479,42 +2628,74 @@ def run_selected(runner: Runner, backend: str, install_missing: bool = False, as
         else:
             print_recommendations(runner)
     else:
+        before = len(runner.results)
         if run_backend(runner, backend):
+            runner.last_successful_backend = backend
             publish_newest_runtime_csv(runner)
         else:
+            if len(runner.results) == before:
+                runner.results.append(RunResult(backend + " backend", False, None, "backend unavailable"))
             if install_missing:
                 if maybe_install_missing(runner, backend, assume_yes_install):
                     runner.log("Install command finished. Retrying backend: " + backend)
                     if run_backend(runner, backend):
+                        runner.last_successful_backend = backend
                         publish_newest_runtime_csv(runner)
             else:
-                print_recommendations(runner)
+                runner.log("")
+                runner.log(f"Strict backend '{backend}' failed. Choose Auto Fallback (Recommended) to try other available backends.")
+                if backend == "wsl" and any(result.name == "wsl shell/tooling probe" and result.ok for result in runner.results):
+                    runner.log("WSL tooling probe passed; this failure happened inside the validation lane, not during WSL installation/tool discovery.")
+                else:
+                    print_recommendations(runner, backend)
     return runner.summary()
 
 
 def run_cli(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Compile and run SSTL C/C++ tests.")
-    parser.add_argument("--backend", choices=BACKENDS, default=None, help="Backend to use. Default prompts in CLI and auto-selects in GUI.")
+    parser.add_argument("--backend", choices=BACKENDS, default=None, help="Backend to use. Local requires a tiny C/C++ CMake sanity build; local coverage also requires lcov/GNU-style coverage support. Default prompts in CLI and auto-selects in GUI.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--yes-virtualized", action="store_true", help="Compatibility alias for --backend auto.")
     mode.add_argument("--no-virtualized", action="store_true", help="Compatibility alias for --backend local.")
+    parser.add_argument("--wsl-distro", default=os.environ.get("SSTL_WSL_DISTRO", ""), help="WSL distro to use for the wsl backend, for example Ubuntu. Defaults to probing usable non-internal distros.")
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing them.")
-    parser.add_argument("--install-missing", action="store_true", help="Offer to install the easiest missing backend/toolchain when none is usable.")
+    parser.add_argument("--install-missing", action="store_true", help="Print setup recommendations and ask before running a selected safe installer.")
     parser.add_argument("--yes-install", action="store_true", help="With --install-missing, run the selected install command without prompting.")
+    parser.add_argument("--prepare-backends", action="store_true", help="Try to make the selected backend(s) available, for example by starting Docker Desktop, starting a Podman machine, or installing WSL validation/coverage tools.")
+    parser.add_argument("--yes-prepare", action="store_true", help="With --prepare-backends, run preparation actions without prompting. Host installers still require --yes-install.")
     parser.add_argument("--coverage", action="store_true", help="After normal tests, generate and print an overall/per-file coverage report.")
-    parser.add_argument("--coverage-only", action="store_true", help="Generate and print the coverage report without first running normal validation lanes.")
+    parser.add_argument("--coverage-only", action="store_true", help="Generate and print the coverage report without first running normal validation lanes. Local coverage requires lcov and a GNU/Clang-style coverage sanity probe.")
     parser.add_argument("--runtime-report", action="store_true", help="After normal tests, print an overall/per-comparison runtime CSV report.")
     parser.add_argument("--runtime-report-only", action="store_true", help="Print the newest runtime CSV report without first running normal validation lanes.")
     parser.add_argument("--quick-summary", action="store_true", help="After normal tests, print a compact status dashboard from latest artifacts.")
     parser.add_argument("--quick-summary-only", action="store_true", help="Print the compact status dashboard without first running normal validation lanes.")
+    parser.add_argument("--vendor-container-images", dest="vendor_container_images", action="store_true", help="After normal tests, also run configured specialized vendor compiler container image probes.")
+    parser.add_argument("--vendor-container-image", dest="vendor_container_image", action="append", default=[], metavar="KEY[@LABEL]=IMAGE", help="Vendor compiler image mapping; keys: armclang, arm-none-eabi, keil-armcc, iar-iccarm.")
+    parser.add_argument("--vendor-container-nominees", dest="vendor_container_nominees", action="store_true", help="Use the four predefined public arm-none-eabi image nominees for initial validation.")
+    parser.add_argument("--vendor-container-nominee", dest="vendor_container_nominee", action="append", choices=tuple(VENDOR_CONTAINER_NOMINEES.keys()), default=[], metavar="NAME", help="Use one predefined public arm-none-eabi image nominee.")
+    parser.add_argument("--list-vendor-container-nominees", dest="list_vendor_container_nominees", action="store_true", help="Print predefined public vendor container image nominees and exit.")
+    parser.add_argument("--vendor-container-engine", dest="vendor_container_engine", default=os.environ.get("SSTL_VENDOR_CONTAINER_ENGINE", ""), help="Docker-compatible engine for vendor compiler image probes. Defaults to the selected docker/podman backend when applicable.")
+    parser.add_argument("--vendor-container-pull", dest="vendor_container_pull", choices=["ask", "never", "always"], default=os.environ.get("SSTL_VENDOR_CONTAINER_PULL", "ask"), help="Policy for missing configured vendor container images.")
+    parser.add_argument("--vendor-container-pull-timeout", dest="vendor_container_pull_timeout", type=int, default=600, help="Per-image vendor container pull timeout in seconds.")
     parser.add_argument("--color", choices=["auto", "always", "never"], default="auto", help="Colorize CLI reports. Default: auto.")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS, help="Per-command timeout in seconds.")
     parser.add_argument("--no-output-timeout", type=int, default=NO_OUTPUT_TIMEOUT_SECONDS, help="Abort a command after this many silent seconds.")
     args = parser.parse_args(argv)
 
+    if args.list_vendor_container_nominees:
+        print("\n".join(vendor_container_nominee_lines()))
+        return 0
+
     runner = Runner(args.dry_run, args.timeout, args.no_output_timeout, color_enabled_from_mode(args.color))
+    runner.wsl_distro = args.wsl_distro.strip()
+    try:
+        selected_vendor_container_images = args.vendor_container_image + expand_vendor_container_nominees(args.vendor_container_nominees, args.vendor_container_nominee)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
     only_reports = args.runtime_report_only or args.coverage_only or args.quick_summary_only
-    needs_backend = args.coverage_only or not only_reports
+    needs_backend = args.prepare_backends or args.coverage_only or not only_reports
 
     if needs_backend:
         if args.backend:
@@ -1528,6 +2709,15 @@ def run_cli(argv: list[str]) -> int:
     else:
         backend = args.backend or "auto"
 
+    if args.prepare_backends:
+        return prepare_selected_backends(
+            runner,
+            backend,
+            args.yes_prepare,
+            install_missing=args.install_missing,
+            assume_yes_install=args.yes_install,
+        )
+
     if only_reports:
         if args.runtime_report_only:
             log_runtime_report(runner)
@@ -1539,6 +2729,17 @@ def run_cli(argv: list[str]) -> int:
 
     result = run_selected(runner, backend, args.install_missing, args.yes_install)
     ran_extra_report = False
+    if result == 0 and (args.vendor_container_images or selected_vendor_container_images):
+        vendor_engine = resolve_vendor_container_engine(args.vendor_container_engine, runner.last_successful_backend or backend)
+        result = 0 if run_vendor_compiler_lanes(
+            runner,
+            args.vendor_container_images or bool(selected_vendor_container_images),
+            selected_vendor_container_images,
+            vendor_engine,
+            args.vendor_container_pull,
+            args.vendor_container_pull_timeout,
+        ) else 1
+        ran_extra_report = True
     if result == 0 and args.runtime_report:
         log_runtime_report(runner)
         ran_extra_report = True
@@ -1967,6 +3168,7 @@ def run_gui() -> int:
     active_runner: list[Runner | None] = [None]
 
     text = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+    attach_text_copy_context_menu(text)
     text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
     controls = tk.Frame(root)
@@ -1983,37 +3185,126 @@ def run_gui() -> int:
         def log(self, message: str) -> None:
             output.put(message + "\n")
 
-    def worker(backend: str, install_missing: bool, coverage_only: bool = False) -> None:
+    class ProbeRunner(Runner):
+        def __init__(self) -> None:
+            super().__init__(color_enabled=False)
+            self.messages: list[str] = []
+
+        def log(self, message: str) -> None:
+            self.messages.append(message)
+
+    def probe_with_reason(check) -> tuple[bool, str]:
+        runner = ProbeRunner()
+        ok = check(runner)
+        return ok, runner.messages[-1] if runner.messages else "probe did not provide a reason"
+
+    strict_docker_available, _, strict_docker_reason = container_engine_probe("docker", timeout=10)
+    strict_podman_available, _, strict_podman_reason = container_engine_probe("podman", timeout=10)
+    strict_local_available, strict_local_reason = probe_with_reason(local_available)
+    strict_local_coverage_available, strict_local_coverage_reason = probe_with_reason(local_coverage_available)
+    strict_wsl_available = select_wsl_distro(ProbeRunner()) is not None
+    strict_wsl_coverage_available = select_wsl_coverage_distro(ProbeRunner()) is not None
+
+    def backend_button_text(label: str, available: bool = True) -> str:
+        return label if available else label + " (Unavailable)"
+
+    def coverage_button_text(label: str, available: bool = True) -> str:
+        text = label + " Coverage"
+        return text if available else text + " (Unavailable)"
+
+    def worker(backend: str, install_missing: bool, coverage_only: bool = False, prepare: bool = False) -> None:
         runner = GuiRunner()
         active_runner[0] = runner
-        if coverage_only:
+        if prepare:
+            runner.log("GUI selected action: prepare backends")
+            runner.log("GUI selected backend: " + backend)
+            runner.log("Preparation can start installed backend services and install missing WSL validation/coverage tools.")
+            code = prepare_selected_backends(runner, backend, True, install_missing=False, assume_yes_install=False)
+            refresh_backend_availability()
+        elif coverage_only:
+            runner.log("GUI selected action: coverage report")
+            runner.log("GUI selected backend: " + backend)
             run_coverage_selected(runner, backend)
             code = runner.summary()
         elif install_missing:
+            runner.log("GUI selected action: install recommendations")
             runner.log("GUI install flow: recommendations will be printed here.")
             runner.log("For safety, run an installer from a terminal with:")
             runner.log("  python tools/sstl_run_tests.py --backend auto --install-missing")
             print_recommendations(runner)
+            runner.results.append(RunResult("install recommendations", True, 0, "printed only; no commands run"))
             code = runner.summary()
         else:
+            runner.log("GUI selected action: validation")
+            runner.log("GUI selected backend: " + backend)
             code = run_selected(runner, backend, False, False)
-        output.put(("coverage" if coverage_only else "tests", code))
+        output.put(("prepare" if prepare else "coverage" if coverage_only else "install" if install_missing else "tests", code))
 
     def set_running(running: bool) -> None:
-        docker_btn.config(state=tk.DISABLED if running else tk.NORMAL)
-        local_btn.config(state=tk.DISABLED if running else tk.NORMAL)
-        podman_btn.config(state=tk.DISABLED if running else tk.NORMAL)
-        wsl_btn.config(state=tk.DISABLED if running else tk.NORMAL)
+        auto_btn.config(state=tk.DISABLED if running else tk.NORMAL)
+        docker_only_btn.config(
+            text=backend_button_text("Docker", strict_docker_available),
+            state=tk.DISABLED if running or not strict_docker_available else tk.NORMAL,
+        )
+        local_btn.config(
+            text=backend_button_text("Local", strict_local_available),
+            state=tk.DISABLED if running or not strict_local_available else tk.NORMAL,
+        )
+        podman_btn.config(
+            text=backend_button_text("Podman", strict_podman_available),
+            state=tk.DISABLED if running or not strict_podman_available else tk.NORMAL,
+        )
+        wsl_btn.config(
+            text=backend_button_text("WSL", strict_wsl_available),
+            state=tk.DISABLED if running or not strict_wsl_available else tk.NORMAL,
+        )
         install_btn.config(state=tk.DISABLED if running else tk.NORMAL)
+        prepare_btn.config(state=tk.DISABLED if running else tk.NORMAL)
         quick_summary_btn.config(state=tk.DISABLED if running else tk.NORMAL)
-        coverage_btn.config(state=tk.DISABLED if running else tk.NORMAL)
+        coverage_auto_btn.config(state=tk.DISABLED if running else tk.NORMAL)
+        coverage_docker_btn.config(
+            text=coverage_button_text("Docker", strict_docker_available),
+            state=tk.DISABLED if running or not strict_docker_available else tk.NORMAL,
+        )
+        coverage_podman_btn.config(
+            text=coverage_button_text("Podman", strict_podman_available),
+            state=tk.DISABLED if running or not strict_podman_available else tk.NORMAL,
+        )
+        coverage_wsl_btn.config(
+            text=coverage_button_text("WSL", strict_wsl_coverage_available),
+            state=tk.DISABLED if running or not strict_wsl_coverage_available else tk.NORMAL,
+        )
+        coverage_local_btn.config(
+            text=coverage_button_text("Local", strict_local_coverage_available),
+            state=tk.DISABLED if running or not strict_local_coverage_available else tk.NORMAL,
+        )
         chart_btn.config(state=tk.DISABLED if running else tk.NORMAL)
         help_btn.config(state=tk.DISABLED if running else tk.NORMAL)
         cancel_btn.config(state=tk.NORMAL if running else tk.DISABLED)
 
-    def start(backend: str, install_missing: bool = False, coverage_only: bool = False) -> None:
+    def start(backend: str, install_missing: bool = False, coverage_only: bool = False, prepare: bool = False) -> None:
         set_running(True)
-        threading.Thread(target=worker, args=(backend, install_missing, coverage_only), daemon=True).start()
+        threading.Thread(target=worker, args=(backend, install_missing, coverage_only, prepare), daemon=True).start()
+
+    def start_prepare() -> None:
+        if not messagebox.askyesno(
+            "Prepare Backends",
+            "Try to make installed backends available now?\n\n"
+            "This can start Docker Desktop, initialize or start a Podman machine, "
+            "and install CMake/Ninja/GCC/Clang/LCOV inside a suitable WSL distro.",
+            default=messagebox.NO,
+        ):
+            return
+        start("auto", False, False, True)
+
+    def refresh_backend_availability() -> None:
+        nonlocal strict_docker_available, strict_docker_reason, strict_podman_available, strict_podman_reason, strict_local_available, strict_local_reason, strict_local_coverage_available, strict_local_coverage_reason, strict_wsl_available, strict_wsl_coverage_available
+        strict_docker_available, _, strict_docker_reason = container_engine_probe("docker", timeout=10)
+        strict_podman_available, _, strict_podman_reason = container_engine_probe("podman", timeout=10)
+        strict_local_available, strict_local_reason = probe_with_reason(local_available)
+        strict_local_coverage_available, strict_local_coverage_reason = probe_with_reason(local_coverage_available)
+        strict_wsl_available = select_wsl_distro(ProbeRunner()) is not None
+        strict_wsl_coverage_available = select_wsl_coverage_distro(ProbeRunner()) is not None
 
     def cancel() -> None:
         if active_runner[0]:
@@ -2041,6 +3332,7 @@ def run_gui() -> int:
         header.pack(fill=tk.X, padx=10, pady=(8, 4))
 
         view = scrolledtext.ScrolledText(win, wrap=tk.WORD, height=24)
+        attach_text_copy_context_menu(view)
         view.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
         view.tag_configure("heading", foreground="#1f4e79", font=("Consolas", 10, "bold"))
         view.tag_configure("pass", foreground="#1f7a3f")
@@ -2063,6 +3355,7 @@ def run_gui() -> int:
         for line in lines:
             view.insert(tk.END, line + "\n", tag_for_line(line))
         view.config(state=tk.DISABLED)
+        set_minimum_window_size(win, 980, 560)
 
     def show_runtime_chart(path: Path | None = None, announce_errors: bool = True) -> None:
         csv_path = path or newest_runtime_csv_artifact()
@@ -2165,12 +3458,13 @@ def run_gui() -> int:
         y = legend_y + 36
 
         canvas.configure(scrollregion=(0, 0, width, y))
+        set_minimum_window_size(win, 1180, 760)
 
     def show_coverage_report(path: Path | None = None, announce_errors: bool = True) -> None:
         coverage_path = path or newest_coverage_artifact()
         if not coverage_path:
             if announce_errors:
-                messagebox.showinfo("Coverage Report", "No coverage artifact was found yet. Click Coverage Report to generate one.")
+                messagebox.showinfo("Coverage Report", "No coverage artifact was found yet. Use the Coverage row to generate one.")
             return
         try:
             report = parse_lcov_info(coverage_path)
@@ -2233,35 +3527,112 @@ def run_gui() -> int:
             y += row_h
 
         canvas.configure(scrollregion=(0, 0, width, y + 24))
+        set_minimum_window_size(win, 1180, 760)
 
-    docker_btn = tk.Button(controls, text="Auto Backend", command=lambda: start("auto"))
-    docker_btn.pack(side=tk.LEFT)
-    local_btn = tk.Button(controls, text="Run Locally", command=lambda: start("local"))
-    local_btn.pack(side=tk.LEFT, padx=8)
-    podman_btn = tk.Button(controls, text="Podman", command=lambda: start("podman"))
-    podman_btn.pack(side=tk.LEFT)
-    wsl_btn = tk.Button(controls, text="WSL", command=lambda: start("wsl"))
-    wsl_btn.pack(side=tk.LEFT, padx=8)
+    for column in range(12):
+        controls.grid_columnconfigure(column, weight=0)
+    controls.grid_columnconfigure(5, minsize=12)
+
+    def place_button(button: "tk.Button", row: int, column: int, padx: tuple[int, int] = (0, 6)) -> None:
+        button.grid(row=row, column=column, sticky="ew", padx=padx, pady=(0, 4))
+
+    auto_btn = tk.Button(controls, text="Auto Fallback", command=lambda: start("auto"))
+    place_button(auto_btn, 0, 0)
+    local_btn = tk.Button(
+        controls,
+        text=backend_button_text("Local", strict_local_available),
+        command=lambda: start("local"),
+        state=tk.NORMAL if strict_local_available else tk.DISABLED,
+    )
+    place_button(local_btn, 0, 1)
+    docker_only_btn = tk.Button(
+        controls,
+        text=backend_button_text("Docker", strict_docker_available),
+        command=lambda: start("docker"),
+        state=tk.NORMAL if strict_docker_available else tk.DISABLED,
+    )
+    place_button(docker_only_btn, 0, 2)
+    podman_btn = tk.Button(
+        controls,
+        text=backend_button_text("Podman", strict_podman_available),
+        command=lambda: start("podman"),
+        state=tk.NORMAL if strict_podman_available else tk.DISABLED,
+    )
+    place_button(podman_btn, 0, 3)
+    wsl_btn = tk.Button(
+        controls,
+        text=backend_button_text("WSL", strict_wsl_available),
+        command=lambda: start("wsl"),
+        state=tk.NORMAL if strict_wsl_available else tk.DISABLED,
+    )
+    place_button(wsl_btn, 0, 4)
     install_btn = tk.Button(controls, text="Recommend / Install", command=lambda: start("auto", True))
-    install_btn.pack(side=tk.LEFT)
+    place_button(install_btn, 0, 6)
+    prepare_btn = tk.Button(controls, text="Prepare Backends", command=start_prepare)
+    place_button(prepare_btn, 0, 7)
     quick_summary_btn = tk.Button(controls, text="Quick Summary", command=show_quick_summary_window)
-    quick_summary_btn.pack(side=tk.LEFT, padx=8)
-    coverage_btn = tk.Button(controls, text="Coverage Report", command=lambda: start("auto", False, True))
-    coverage_btn.pack(side=tk.LEFT)
+    place_button(quick_summary_btn, 0, 8)
     chart_btn = tk.Button(controls, text="Runtime Chart", command=lambda: show_runtime_chart())
-    chart_btn.pack(side=tk.LEFT, padx=8)
+    place_button(chart_btn, 0, 9)
     help_btn = tk.Button(controls, text="Help", command=show_help)
-    help_btn.pack(side=tk.LEFT)
+    place_button(help_btn, 0, 10)
     cancel_btn = tk.Button(controls, text="Cancel", command=cancel, state=tk.DISABLED)
-    cancel_btn.pack(side=tk.LEFT)
+    place_button(cancel_btn, 0, 11, padx=(0, 0))
 
-    write("Choose Auto Backend to discover Docker, Podman, WSL, then local CMake/CTest.\n")
-    write("Run Locally avoids creating/running virtualized environments.\n")
+    coverage_auto_btn = tk.Button(controls, text=coverage_button_text("Auto Fallback"), command=lambda: start("auto", False, True))
+    place_button(coverage_auto_btn, 1, 0)
+    coverage_local_btn = tk.Button(
+        controls,
+        text=coverage_button_text("Local", strict_local_coverage_available),
+        command=lambda: start("local", False, True),
+        state=tk.NORMAL if strict_local_coverage_available else tk.DISABLED,
+    )
+    place_button(coverage_local_btn, 1, 1)
+    coverage_docker_btn = tk.Button(
+        controls,
+        text=coverage_button_text("Docker", strict_docker_available),
+        command=lambda: start("docker", False, True),
+        state=tk.NORMAL if strict_docker_available else tk.DISABLED,
+    )
+    place_button(coverage_docker_btn, 1, 2)
+    coverage_podman_btn = tk.Button(
+        controls,
+        text=coverage_button_text("Podman", strict_podman_available),
+        command=lambda: start("podman", False, True),
+        state=tk.NORMAL if strict_podman_available else tk.DISABLED,
+    )
+    place_button(coverage_podman_btn, 1, 3)
+    coverage_wsl_btn = tk.Button(
+        controls,
+        text=coverage_button_text("WSL", strict_wsl_coverage_available),
+        command=lambda: start("wsl", False, True),
+        state=tk.NORMAL if strict_wsl_coverage_available else tk.DISABLED,
+    )
+    place_button(coverage_wsl_btn, 1, 4)
+
+    write("Choose Auto Fallback (Recommended) to discover Docker, Podman, WSL, then local CMake/CTest.\n")
+    write("Backend-specific buttons are strict and do not fall back if that backend is unavailable.\n")
+    if not strict_docker_available:
+        write("Docker is disabled: " + container_engine_summary("docker", strict_docker_reason) + ".\n")
+    if not strict_podman_available:
+        write("Podman is disabled: " + container_engine_summary("podman", strict_podman_reason) + ".\n")
+    if not strict_wsl_available:
+        write("WSL is disabled: no non-internal WSL distro with cmake, ninja, gcc/g++, and clang/clang++ was detected.\n")
+    if strict_wsl_available and not strict_wsl_coverage_available:
+        write("WSL Coverage is disabled: no non-internal WSL distro with cmake, ninja, gcc/g++, and lcov was detected. Prepare Backends can install the missing WSL coverage tool.\n")
+    if not strict_local_available:
+        write("Local is disabled: " + strict_local_reason + "\n")
+    if not strict_local_coverage_available:
+        write("Local Coverage is disabled: " + strict_local_coverage_reason + "\n")
+    write("Local avoids creating/running virtualized environments and must pass a tiny C/C++ sanity build first.\n")
     write("Recommend / Install prints safe installer commands. Run them from a terminal to confirm installation.\n")
+    write("Prepare Backends asks first, then can try to make disabled Docker/Podman/WSL buttons usable, including WSL coverage tools.\n")
     write("Click Help for terminal commands and backend descriptions.\n")
     write("Click Quick Summary for a compact dashboard from the latest command, coverage, and runtime artifacts.\n")
-    write("Click Coverage Report to generate and visualize overall/per-file coverage.\n")
+    write("Use the Coverage row to run auto coverage or force Docker, Podman, WSL, or local coverage.\n")
     write("Guardrails are active: command timeout and no-output watchdog.\n")
+
+    set_minimum_window_size(root, 920, 640)
 
     def poll() -> None:
         try:
@@ -2281,6 +3652,18 @@ def run_gui() -> int:
                                 messagebox.showwarning("SSTL Test Runner", "Coverage report opened. One or more coverage thresholds did not pass.")
                         else:
                             messagebox.showerror("SSTL Test Runner", "Coverage command finished, but no coverage artifact was found.")
+                        continue
+                    if mode == "install":
+                        if code == 0:
+                            messagebox.showinfo("SSTL Test Runner", "Install recommendations printed. No commands were run.")
+                        else:
+                            messagebox.showerror("SSTL Test Runner", "Could not print install recommendations.")
+                        continue
+                    if mode == "prepare":
+                        if code == 0:
+                            messagebox.showinfo("SSTL Test Runner", "Backend preparation finished. Availability buttons were refreshed.")
+                        else:
+                            messagebox.showwarning("SSTL Test Runner", "Backend preparation finished with issues. See the log for the backend-specific reason.")
                         continue
                     if code == 0:
                         latest_csv = newest_runtime_csv_artifact()
@@ -2303,7 +3686,7 @@ def run_gui() -> int:
 
 
 def main() -> int:
-    if maybe_relaunch_windows_gui():
+    if maybe_relaunch_windows_gui(ROOT, __file__, sys.argv[1:]):
         return 0
     # Arguments always mean CLI. This avoids accidental GUI launch in IDEs,
     # build tools, or automation shells whose stdout is not a real terminal.

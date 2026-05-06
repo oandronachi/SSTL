@@ -15,9 +15,14 @@ DEFAULT_PRESETS = [
     "host-panic",
     "host-ub",
     "host-asan-ubsan",
+    "host-msan",
+    "host-tsan",
     "host-coverage",
     "host-freestanding-probes",
+    "host-libfuzzer",
 ]
+
+BUILD_ONLY_PRESETS = {"host-freestanding-probes", "host-libfuzzer"}
 
 
 def preset_build_dir(root: Path, preset: str) -> Path:
@@ -65,7 +70,7 @@ def main() -> int:
         return 1
       if run(["cmake", "--build", "--preset", preset], root) != 0:
         return 1
-      if not args.skip_tests and preset != "host-freestanding-probes":
+      if not args.skip_tests and preset not in BUILD_ONLY_PRESETS:
         if run(["ctest", "--preset", preset], root) != 0:
           return 1
     return 0

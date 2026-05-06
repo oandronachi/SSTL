@@ -20,6 +20,12 @@
 #include "noalloc_audit.hpp"
 #include "tracked.hpp"
 
+struct tracked_hash {
+  unsigned operator()(const sstl_test::tracked& value) const {
+    return sstl::hash<int>()(value.value);
+  }
+};
+
 static void sequence_containers_destroy_tracked_elements() {
   sstl_test::tracked::reset();
   {
@@ -121,7 +127,8 @@ static void unordered_containers_copy_and_iterate_live_values() {
 
     map_type copied(original);
     SSTL_TEST_EQ(copied.size(), 2u);
-    copied = copied;
+    map_type& copied_alias = copied;
+    copied = copied_alias;
     SSTL_TEST_EQ(copied.size(), 2u);
     SSTL_TEST_ASSERT(copied.find(1) != copied.end());
     SSTL_TEST_ASSERT(copied.find(8) != copied.end());
@@ -154,7 +161,7 @@ static void unordered_containers_copy_and_iterate_live_values() {
   sstl_test::tracked::reset();
   {
     sstl_test::noalloc_guard guard;
-    typedef sstl::unordered_set<sstl_test::tracked, 4, 7> set_type;
+    typedef sstl::unordered_set<sstl_test::tracked, 4, 7, tracked_hash> set_type;
     set_type original;
     sstl_test::tracked one(1);
     sstl_test::tracked two(2);

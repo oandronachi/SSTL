@@ -329,6 +329,8 @@ def write_completeness(root: Path, status: str, failed: list[str], open_assumpti
     out = root / "manifests" / "completeness.yaml"
     mutation_summary = "manifests/mutation_summary.yaml" if (root / "manifests" / "mutation_summary.yaml").exists() else "null"
     docker_validation = "manifests/docker_validation.yaml" if (root / "manifests" / "docker_validation.yaml").exists() else "null"
+    misra_advisory_summary = "manifests/misra_advisory_summary.yaml" if (root / "manifests" / "misra_advisory_summary.yaml").exists() else "null"
+    vendor_compiler_summary = "manifests/vendor_compiler_summary.yaml" if (root / "manifests" / "vendor_compiler_summary.yaml").exists() else "null"
     lines = [
         f"status: {status}",
         f"generated_at_utc: {datetime.now(timezone.utc).isoformat()}",
@@ -342,6 +344,8 @@ def write_completeness(root: Path, status: str, failed: list[str], open_assumpti
         f"documentation_summary: {documentation_summary}",
         f"mutation_summary: {mutation_summary}",
         f"docker_validation: {docker_validation}",
+        f"misra_advisory_summary: {misra_advisory_summary}",
+        f"vendor_compiler_summary: {vendor_compiler_summary}",
         "open_assumptions:",
     ]
     lines += [f"  - {item}" for item in open_assumptions] or ["  []"]
@@ -454,6 +458,18 @@ def main() -> int:
             failed.append("cmake_build_failed")
         elif not failed and run(["ctest", "--test-dir", str(build_dir), "--output-on-failure"], root) != 0:
             failed.append("ctest_failed")
+
+    misra_summary = root / "manifests" / "misra_advisory_summary.yaml"
+    if not misra_summary.exists():
+        failed.append("missing_misra_advisory_summary")
+    elif "status: pass" not in misra_summary.read_text(encoding="utf-8", errors="replace"):
+        failed.append("misra_advisory_scan_not_passing")
+
+    vendor_compiler_summary = root / "manifests" / "vendor_compiler_summary.yaml"
+    if not vendor_compiler_summary.exists():
+        failed.append("missing_vendor_compiler_summary")
+    elif "status: fail" in vendor_compiler_summary.read_text(encoding="utf-8", errors="replace"):
+        failed.append("vendor_compiler_lanes_not_passing")
 
     status = "complete" if not failed else "incomplete"
     write_completeness(root, status, failed, open_assumptions)

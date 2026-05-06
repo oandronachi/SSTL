@@ -5,20 +5,26 @@ from __future__ import annotations
 
 import ast
 import argparse
-import ctypes
 import hashlib
 import io
-import os
 import queue
-import subprocess
 import sys
 import threading
 import tokenize
 from pathlib import Path
 
+from sstl_tool_common import (
+    attach_text_copy_context_menu,
+    maybe_relaunch_windows_gui,
+    parent_is_known_terminal,
+    repo_root_from_script,
+    set_buttons_enabled,
+    set_minimum_window_size,
+    terminal_like_launch,
+)
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT = SCRIPT_DIR.parent if SCRIPT_DIR.name == "tools" else SCRIPT_DIR
+
+ROOT = repo_root_from_script(__file__)
 ARTIFACT_ROOT = ROOT / "artifacts"
 INCLUDE_ROOT = ROOT / "include"
 TEST_ROOT = ROOT / "testing"
@@ -45,6 +51,7 @@ Terminal usage:
   python tools/sstl_build_bundles.py
   python tools/sstl_build_bundles.py --quiet
   python tools/sstl_build_bundles.py --verify
+  python tools/sstl_build_bundles.py --verify-only
   python tools/sstl_build_bundles.py --gui
 
 Double-click usage:
@@ -58,7 +65,8 @@ Generated artifacts:
   sstl-bundle-tests-no-comments.yaml
 
 The old split generators were consolidated into this script. Test bundles are
-written to the same artifact folder as the implementation bundles.
+written to the same artifact folder as the implementation bundles. Use
+--verify-only to validate existing bundle digests without regenerating files.
 """
 
 
@@ -397,63 +405,6 @@ def verify_bundles(paths: list[Path] | None = None) -> list[tuple[Path, int, lis
     return results
 
 
-def terminal_like_launch() -> bool:
-    return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
-
-
-def parent_process_name() -> str:
-    if os.name != "nt":
-        return ""
-    try:
-        parent_pid = os.getppid()
-        process_query_limited_information = 0x1000
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.OpenProcess(process_query_limited_information, False, parent_pid)
-        if not handle:
-            return ""
-        try:
-            size = ctypes.c_ulong(32768)
-            buf = ctypes.create_unicode_buffer(size.value)
-            if kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
-                return Path(buf.value).name.lower()
-        finally:
-            kernel32.CloseHandle(handle)
-    except Exception:
-        return ""
-    return ""
-
-
-def parent_is_known_terminal() -> bool:
-    return parent_process_name() in {
-        "cmd.exe",
-        "powershell.exe",
-        "pwsh.exe",
-        "windowsterminal.exe",
-        "wt.exe",
-        "conhost.exe",
-        "openconsole.exe",
-        "terminal64.exe",
-        "terminal.exe",
-    }
-
-
-def maybe_relaunch_windows_gui() -> bool:
-    if os.name != "nt" or len(sys.argv) > 1:
-        return False
-    if Path(sys.executable).name.lower() == "pythonw.exe":
-        return False
-    if parent_is_known_terminal():
-        return False
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    if not pythonw.exists():
-        return False
-    try:
-        subprocess.Popen([str(pythonw), str(Path(__file__).resolve())], cwd=str(ROOT), close_fds=True)
-        return True
-    except Exception:
-        return False
-
-
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate all SSTL bundle YAML files in the shared artifacts folder.")
     parser.add_argument("--quiet", action="store_true", help="Do not print generated bundle paths.")
@@ -502,6 +453,7 @@ def run_gui() -> int:
 
     output: "queue.Queue[str | tuple[str, int]]" = queue.Queue()
     text = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+    attach_text_copy_context_menu(text)
     text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
     controls = tk.Frame(root)
@@ -514,8 +466,7 @@ def run_gui() -> int:
         text.see(tk.END)
 
     def set_running(running: bool) -> None:
-        for button in buttons:
-            button.config(state=tk.DISABLED if running else tk.NORMAL)
+        set_buttons_enabled(buttons, not running)
 
     def generate_worker() -> None:
         try:
@@ -590,6 +541,7 @@ def run_gui() -> int:
     write(f"Click Generate Bundles to write all four YAML bundles into:\n{ARTIFACT_ROOT}\n")
     write("Click Verify Hashes to check current bundle sha256 entries.\n")
     write("CLI is also available; click Help for examples.\n")
+    set_minimum_window_size(root, 900, 560)
     root.after(100, poll)
     root.mainloop()
     return 0
@@ -599,7 +551,7 @@ def main(argv: list[str] | None = None) -> int:
     actual_argv = sys.argv[1:] if argv is None else argv
     if actual_argv:
         return run_cli(actual_argv)
-    if maybe_relaunch_windows_gui():
+    if maybe_relaunch_windows_gui(ROOT, __file__, actual_argv):
         return 0
     if terminal_like_launch() and parent_is_known_terminal():
         return run_cli([])

@@ -1,0 +1,15 @@
+status: pass
+generated_at_utc: 2026-05-06T18:14:18.806390+00:00
+scanner: preprocessor-pattern-advisory
+sources:
+  - "tests/c99/compile_probe/sstl_c99_probe.c"
+  - "tests/c99/adapters/test_queue_stack_priority_queue.c"
+  - "tests/c99/algorithm/test_algorithm_contracts.c"
+  - "tests/c99/list/test_list_extended_ops.c"
+  - "tests/c99/map/test_flat_unordered_semantics.c"
+  - "tests/c99/zero_capacity/test_zero_capacity.c"
+  - "tests/regression/reg_zero_capacity_no_zero_length_arrays.c"
+failed_preprocess:
+  []
+findings:
+  []

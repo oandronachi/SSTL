@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
-"""Remove generated SSTL folders by cleanup group.
+"""Remove generated SSTL paths by cleanup group.
 
 Terminal usage:
   python tools/sstl_clean_generated.py --dry-run
   python tools/sstl_clean_generated.py --groups cache build --dry-run
   python tools/sstl_clean_generated.py --groups documentation --dry-run
+  python tools/sstl_clean_generated.py --groups artifacts --dry-run
+  python tools/sstl_clean_generated.py --groups artifacts build --dry-run
   python tools/sstl_clean_generated.py --groups all --yes
   python tools/sstl_clean_generated.py --gui
 
 Double-click usage:
   Double-click this file. The GUI opens with cleanup groups for cache, build,
-  and documentation outputs. Click Scan to review the exact targets, then click
-  Delete Listed Targets when ready.
+  documentation outputs, and full artifacts output. Click Scan to review the
+  exact targets, then click Delete Listed Targets when ready.
 
 Cleanup groups:
   cache          folders named __pycache__ or .pytest_cache
   build          folders named build
   documentation  generated Doxygen folders under artifacts/ and documentation/
-  all            every group above
+  artifacts      every immediate child under artifacts/; leaves artifacts/
+  all            cache + build + documentation
 
 Guardrails:
   - deprecated folders are not traversed
   - every target must resolve inside the project root
-  - source roots such as include/, testing/, tools/, artifacts/, and
-    documentation/ are never deleted directly
+  - source roots such as include/, testing/, tools/ and documentation/ are
+    never deleted directly; artifacts/ is kept and only its children are purged
   - documentation cleanup is restricted to generated Doxygen output folders
   - CLI deletion asks for confirmation unless --yes is supplied
 """
@@ -31,37 +34,65 @@ Guardrails:
 from __future__ import annotations
 
 import argparse
-import ctypes
 from dataclasses import dataclass
 import os
 from pathlib import Path
 import queue
 import shutil
-import subprocess
 import sys
 import threading
 
+from sstl_tool_common import (
+    ask_yes_no,
+    attach_text_copy_context_menu,
+    maybe_relaunch_windows_gui,
+    parent_is_known_terminal,
+    repo_root_from_script,
+    set_buttons_enabled,
+    set_minimum_window_size,
+    set_widget_children_enabled,
+    terminal_like_launch,
+)
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT = SCRIPT_DIR.parent if SCRIPT_DIR.name == "tools" else SCRIPT_DIR
+
+ROOT = repo_root_from_script(__file__)
 ARTIFACT_ROOT = ROOT / "artifacts"
 
 CACHE_DIR_NAMES = {"__pycache__", ".pytest_cache"}
 BUILD_DIR_NAMES = {"build"}
-GROUP_ORDER = ("cache", "build", "documentation")
+STANDARD_GROUPS = ("cache", "build", "documentation")
+GROUP_ORDER = ("cache", "build", "documentation", "artifacts")
 GROUP_ALIASES = {
-    "all": "all",
-    "cache": "cache",
-    "caches": "cache",
-    "pycache": "cache",
-    "__pycache__": "cache",
-    ".pytest_cache": "cache",
-    "build": "build",
-    "builds": "build",
-    "documentation": "documentation",
-    "docs": "documentation",
-    "doc": "documentation",
-    "doxygen": "documentation",
+    "all": STANDARD_GROUPS,
+    "cache": ("cache",),
+    "caches": ("cache",),
+    "pycache": ("cache",),
+    "__pycache__": ("cache",),
+    ".pytest_cache": ("cache",),
+    "build": ("build",),
+    "builds": ("build",),
+    "documentation": ("documentation",),
+    "docs": ("documentation",),
+    "doc": ("documentation",),
+    "doxygen": ("documentation",),
+    "artifact": ("artifacts",),
+    "artifacts": ("artifacts",),
+    "artefact": ("artifacts",),
+    "artefacts": ("artifacts",),
+    "all-artifacts": ("artifacts",),
+    "all_artifacts": ("artifacts",),
+    "all-artefacts": ("artifacts",),
+    "all_artefacts": ("artifacts",),
+    "artifacts-build": ("artifacts", "build"),
+    "artifacts+build": ("artifacts", "build"),
+    "artifacts_build": ("artifacts", "build"),
+    "artefacts-build": ("artifacts", "build"),
+    "artefacts+build": ("artifacts", "build"),
+    "artefacts_build": ("artifacts", "build"),
+    "all-artifacts-build": ("artifacts", "build"),
+    "all_artifacts_build": ("artifacts", "build"),
+    "all-artefacts-build": ("artifacts", "build"),
+    "all_artefacts_build": ("artifacts", "build"),
 }
 PROTECTED_ROOT_NAMES = {"include", "testing", "tools", "artifacts", "documentation"}
 
@@ -71,10 +102,12 @@ Terminal examples:
   python tools/sstl_clean_generated.py --dry-run
   python tools/sstl_clean_generated.py --groups cache build --dry-run
   python tools/sstl_clean_generated.py --groups documentation --dry-run
+  python tools/sstl_clean_generated.py --groups artifacts --dry-run
+  python tools/sstl_clean_generated.py --groups artifacts build --dry-run
   python tools/sstl_clean_generated.py --groups all --yes
 
 Double-click behavior:
-  The GUI opens. Select cleanup groups, click Scan to list generated folders,
+  The GUI opens. Select cleanup groups, click Scan to list generated targets,
   then Delete Listed Targets when you are ready. A confirmation dialog is shown
   before deletion.
 
@@ -82,76 +115,22 @@ Groups:
   cache          __pycache__ and .pytest_cache folders
   build          build folders
   documentation  generated Doxygen folders under artifacts/ and documentation/
-  all            every group above
+  artifacts      every immediate child under artifacts/; leaves artifacts/
+  all            cache + build + documentation
+  artifacts-build shortcut for artifacts + build
 
 The cleaner does not traverse deprecated folders and refuses to delete source
-roots directly.
+roots directly. The artifacts group purges the contents of artifacts/ without
+removing the artifacts/ directory itself.
 """
 
 
 @dataclass(frozen=True)
 class CleanTarget:
-    """One generated folder that can be safely removed."""
+    """One generated path that can be safely removed."""
 
     group: str
     path: Path
-
-
-def terminal_like_launch() -> bool:
-    return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
-
-
-def parent_process_name() -> str:
-    if os.name != "nt":
-        return ""
-    try:
-        parent_pid = os.getppid()
-        process_query_limited_information = 0x1000
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.OpenProcess(process_query_limited_information, False, parent_pid)
-        if not handle:
-            return ""
-        try:
-            size = ctypes.c_ulong(32768)
-            buf = ctypes.create_unicode_buffer(size.value)
-            if kernel32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
-                return Path(buf.value).name.lower()
-        finally:
-            kernel32.CloseHandle(handle)
-    except Exception:
-        return ""
-    return ""
-
-
-def parent_is_known_terminal() -> bool:
-    return parent_process_name() in {
-        "cmd.exe",
-        "powershell.exe",
-        "pwsh.exe",
-        "windowsterminal.exe",
-        "wt.exe",
-        "conhost.exe",
-        "openconsole.exe",
-        "terminal64.exe",
-        "terminal.exe",
-    }
-
-
-def maybe_relaunch_windows_gui() -> bool:
-    if os.name != "nt" or len(sys.argv) > 1:
-        return False
-    if Path(sys.executable).name.lower() == "pythonw.exe":
-        return False
-    if parent_is_known_terminal():
-        return False
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    if not pythonw.exists():
-        return False
-    try:
-        subprocess.Popen([str(pythonw), str(Path(__file__).resolve())], cwd=str(ROOT), close_fds=True)
-        return True
-    except Exception:
-        return False
 
 
 def is_deprecated_part(path: Path) -> bool:
@@ -181,6 +160,14 @@ def generated_documentation_roots() -> set[Path]:
     }
 
 
+def is_artifact_child(path: Path) -> bool:
+    try:
+        rel = path.resolve().relative_to(ARTIFACT_ROOT.resolve())
+    except ValueError:
+        return False
+    return len(rel.parts) > 0
+
+
 def target_allowed(target: CleanTarget) -> bool:
     path = target.path
     if not inside_root(path):
@@ -195,6 +182,8 @@ def target_allowed(target: CleanTarget) -> bool:
         return path.name in BUILD_DIR_NAMES
     if target.group == "documentation":
         return path.resolve() in generated_documentation_roots()
+    if target.group == "artifacts":
+        return is_artifact_child(path)
     return False
 
 
@@ -208,18 +197,16 @@ def normalize_groups(raw_groups: list[str] | None) -> list[str]:
         if not mapped:
             unknown.append(raw)
             continue
-        if mapped == "all":
-            normalized = list(GROUP_ORDER)
-            break
-        if mapped not in normalized:
-            normalized.append(mapped)
+        for group in mapped:
+            if group not in normalized:
+                normalized.append(group)
     if unknown:
         raise ValueError(
             "Unknown cleanup group(s): "
             + ", ".join(unknown)
-            + "\nAvailable groups: all, cache, build, documentation"
+            + "\nAvailable groups: all, cache, build, documentation, artifacts"
         )
-    return normalized or list(GROUP_ORDER)
+    return normalized or list(STANDARD_GROUPS)
 
 
 def discover_walk_targets(groups: set[str]) -> list[CleanTarget]:
@@ -259,9 +246,20 @@ def discover_documentation_targets(groups: set[str]) -> list[CleanTarget]:
     return targets
 
 
+def discover_artifact_targets(groups: set[str]) -> list[CleanTarget]:
+    if "artifacts" not in groups or not ARTIFACT_ROOT.exists():
+        return []
+    targets: list[CleanTarget] = []
+    for path in sorted(ARTIFACT_ROOT.iterdir(), key=lambda item: item.name.lower()):
+        target = CleanTarget("artifacts", path)
+        if target_allowed(target):
+            targets.append(target)
+    return targets
+
+
 def discover_targets(groups: list[str] | None = None) -> list[CleanTarget]:
-    selected = set(groups or GROUP_ORDER)
-    targets = discover_walk_targets(selected) + discover_documentation_targets(selected)
+    selected = set(groups or STANDARD_GROUPS)
+    targets = discover_walk_targets(selected) + discover_documentation_targets(selected) + discover_artifact_targets(selected)
     unique: dict[Path, CleanTarget] = {}
     for target in targets:
         unique[target.path.resolve()] = target
@@ -280,6 +278,7 @@ def group_title(group: str) -> str:
         "cache": "Cache",
         "build": "Build",
         "documentation": "Documentation",
+        "artifacts": "Artifacts",
     }.get(group, group)
 
 
@@ -314,7 +313,10 @@ def delete_targets(targets: list[CleanTarget], log=print) -> bool:
             log(f"SKIP missing: {display_path(target.path)}")
             continue
         try:
-            shutil.rmtree(target.path)
+            if target.path.is_dir() and not target.path.is_symlink():
+                shutil.rmtree(target.path)
+            else:
+                target.path.unlink()
             log(f"Deleted [{target.group}]: {display_path(target.path)}")
         except Exception as exc:
             log(f"FAILED [{target.group}]: {display_path(target.path)} - {exc}")
@@ -322,19 +324,8 @@ def delete_targets(targets: list[CleanTarget], log=print) -> bool:
     return ok
 
 
-def ask_yes_no(prompt: str, default: bool = False) -> bool:
-    suffix = " [Y/n] " if default else " [y/N] "
-    try:
-        answer = input(prompt + suffix).strip().lower()
-    except EOFError:
-        return False
-    if not answer:
-        return default
-    return answer in {"y", "yes"}
-
-
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Remove SSTL generated folders by cleanup group.")
+    parser = argparse.ArgumentParser(description="Remove SSTL generated paths by cleanup group.")
     parser.add_argument("--dry-run", action="store_true", help="List targets without deleting them.")
     parser.add_argument("--yes", action="store_true", help="Delete without asking for CLI confirmation.")
     parser.add_argument("--gui", action="store_true", help="Open the Tkinter GUI.")
@@ -343,7 +334,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--groups",
         nargs="+",
         default=["all"],
-        help="Cleanup groups to scan/delete: all, cache, build, documentation. Default: all.",
+        help="Cleanup groups to scan/delete: all, cache, build, documentation, artifacts. Default: all.",
     )
     return parser.parse_args(argv)
 
@@ -354,6 +345,8 @@ def print_group_help() -> None:
     print("  cache          __pycache__ and .pytest_cache folders")
     print("  build          build folders")
     print("  documentation  generated Doxygen folders under artifacts/ and documentation/")
+    print("  artifacts      every immediate child under artifacts/; leaves artifacts/")
+    print("  artifacts-build  artifacts + build shortcut")
 
 
 def run_cli(argv: list[str]) -> int:
@@ -381,7 +374,7 @@ def run_cli(argv: list[str]) -> int:
     if args.dry_run:
         print("\nDry run only; nothing was deleted.")
         return 0
-    if not args.yes and not ask_yes_no(f"\nDelete {len(targets)} generated folder(s)?", default=False):
+    if not args.yes and not ask_yes_no(f"\nDelete {len(targets)} generated target(s)?", default=False):
         print("Cleanup declined; nothing was deleted.")
         return 0
     return 0 if delete_targets(targets) else 1
@@ -400,6 +393,7 @@ def run_gui() -> int:
 
     output: "queue.Queue[tuple[str, object]]" = queue.Queue()
     targets: list[CleanTarget] = []
+    target_groups: list[str] = []
 
     top = tk.Frame(root)
     top.pack(fill=tk.X, padx=8, pady=(8, 0))
@@ -409,11 +403,12 @@ def run_gui() -> int:
     checks = tk.Frame(top)
     checks.pack(fill=tk.X, pady=(4, 0))
     for group in GROUP_ORDER:
-        var = tk.BooleanVar(value=True)
+        var = tk.BooleanVar(value=group in STANDARD_GROUPS)
         group_vars[group] = var
         tk.Checkbutton(checks, text=group_title(group), variable=var).pack(side=tk.LEFT, padx=(0, 12))
 
     text = scrolledtext.ScrolledText(root, wrap=tk.WORD)
+    attach_text_copy_context_menu(text)
     text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
     controls = tk.Frame(root)
@@ -426,16 +421,14 @@ def run_gui() -> int:
         text.see(tk.END)
 
     def set_running(running: bool) -> None:
-        for button in buttons:
-            button.config(state=tk.DISABLED if running else tk.NORMAL)
-        for child in checks.winfo_children():
-            child.config(state=tk.DISABLED if running else tk.NORMAL)
+        set_buttons_enabled(buttons, not running)
+        set_widget_children_enabled(checks, not running)
 
     def selected_groups() -> list[str]:
         return [group for group in GROUP_ORDER if group_vars[group].get()]
 
     def scan_worker(groups: list[str]) -> None:
-        output.put(("targets", discover_targets(groups)))
+        output.put(("targets", (groups, discover_targets(groups))))
 
     def delete_worker(selected: list[CleanTarget]) -> None:
         lines: list[str] = []
@@ -457,13 +450,27 @@ def run_gui() -> int:
         threading.Thread(target=scan_worker, args=(groups,), daemon=True).start()
 
     def start_delete() -> None:
-        if not targets:
-            messagebox.showinfo("SSTL Generated Data Cleaner", "No generated folders are currently listed.")
+        nonlocal targets, target_groups
+        groups = selected_groups()
+        if not groups:
+            messagebox.showinfo("SSTL Generated Data Cleaner", "Select at least one cleanup group.")
             return
-        groups = sorted({target.group for target in targets}, key=GROUP_ORDER.index)
+        if groups != target_groups:
+            targets = discover_targets(groups)
+            target_groups = list(groups)
+            text.delete("1.0", tk.END)
+            write("Generated cleanup targets:\n")
+            if not targets:
+                write("  none\n")
+            for line in format_targets(targets):
+                write(line + "\n")
+        if not targets:
+            messagebox.showinfo("SSTL Generated Data Cleaner", "No generated targets are currently listed.")
+            return
+        actual_groups = sorted({target.group for target in targets}, key=GROUP_ORDER.index)
         if not messagebox.askyesno(
             "Confirm Cleanup",
-            f"Delete {len(targets)} generated folder(s)?\n\nGroups: {', '.join(groups)}\n\nSource folders are protected.",
+            f"Delete {len(targets)} generated target(s)?\n\nGroups: {', '.join(actual_groups)}\n\nSource folders are protected.",
         ):
             return
         set_running(True)
@@ -481,13 +488,15 @@ def run_gui() -> int:
         messagebox.showinfo("SSTL Generated Data Cleaner Help", HELP_TEXT)
 
     def poll() -> None:
-        nonlocal targets
+        nonlocal targets, target_groups
         try:
             while True:
                 kind, payload = output.get_nowait()
                 set_running(False)
                 if kind == "targets":
-                    targets = list(payload)  # type: ignore[arg-type]
+                    groups, discovered = payload  # type: ignore[misc]
+                    target_groups = list(groups)
+                    targets = list(discovered)
                     text.delete("1.0", tk.END)
                     write("Generated cleanup targets:\n")
                     if not targets:
@@ -503,6 +512,7 @@ def run_gui() -> int:
                         messagebox.showinfo("SSTL Generated Data Cleaner", "Cleanup completed.")
                     else:
                         messagebox.showwarning("SSTL Generated Data Cleaner", "Cleanup completed with one or more skips/failures.")
+                    target_groups = selected_groups()
                     targets = discover_targets(selected_groups())
         except queue.Empty:
             root.after(100, poll)
@@ -520,8 +530,10 @@ def run_gui() -> int:
 
     write("Select cleanup groups, then click Scan to review generated targets.\n")
     write("Documentation cleanup removes generated Doxygen folders only.\n")
+    write("Artifacts cleanup removes every immediate child under artifacts/ but keeps the artifacts/ folder.\n")
     write("Click Delete Listed Targets when you are ready; a confirmation dialog appears first.\n")
     write("CLI is also available; click Help for examples.\n")
+    set_minimum_window_size(root, 980, 620)
     root.after(100, poll)
     root.mainloop()
     return 0
@@ -531,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
     actual_argv = sys.argv[1:] if argv is None else argv
     if actual_argv:
         return run_cli(actual_argv)
-    if maybe_relaunch_windows_gui():
+    if maybe_relaunch_windows_gui(ROOT, __file__, actual_argv):
         return 0
     if terminal_like_launch() and parent_is_known_terminal():
         return run_cli([])

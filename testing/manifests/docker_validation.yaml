@@ -1,4 +1,4 @@
-generated_at_utc: 2026-05-05T14:13:40.8582527Z
+generated_at_utc: 2026-05-06T13:02:02.8084426Z
 environment: docker:gcc-13-bookworm
 tooling:
   compiler: GCC 13.4.0
@@ -7,8 +7,15 @@ lanes:
   host_debug: pass
   host_panic: pass
   host_ub: pass
+  host_asan_ubsan: pass
+  host_msan: pass
+  host_tsan: pass
   target_smoke: pass
+  host_libfuzzer: pass
+  mutation_smoke: pass
 target_smoke_definition: host-freestanding-probes
 notes:
-  - Docker ran the GCC RETURN, PANIC, UB, 61-test host-debug suite, runtime comparison, mutation smoke, and freestanding probe lanes against SSTL_ROOT=/work.
+  - Docker ran the RETURN host-debug, PANIC, UB, ASan/UBSan, MSan, TSan, runtime comparison, mutation smoke, freestanding probe, and libFuzzer build lanes against SSTL_ROOT=/work.
+  - The ASan/UBSan lane is pinned to GCC; MSan, TSan, and libFuzzer use Clang with libclang runtime support.
+  - MSan and TSan use unconfined Docker seccomp plus setarch x86_64 -R for sanitizer shadow-memory mappings in virtualized Linux.
   - The freestanding probe lane is the local target-smoke substitute for this workspace.

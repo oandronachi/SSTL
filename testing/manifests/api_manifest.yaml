@@ -794,3 +794,9 @@ apis:
   - api_id: package.docs.integrity
     family: documentation
     language: package
+  - api_id: package.misra.advisory_scan
+    family: static-analysis
+    language: package
+  - api_id: package.vendor.compiler_lanes
+    family: compiler-matrix
+    language: package

@@ -19,6 +19,8 @@ static void find_compare_and_substr_follow_string_model() {
   const int int_b = 'b';
   SSTL_TEST_ASSERT(s.append("ababa"));
   SSTL_TEST_EQ(s.find("ba"), 1u);
+  SSTL_TEST_EQ(s.find("aba", 0u, 3u), 0u);
+  SSTL_TEST_EQ(s.find("a", 1u, sstl::npos), sstl::npos);
   SSTL_TEST_EQ(s.find('a'), 0u);
   SSTL_TEST_EQ(s.find('a', 1u), 2u);
   SSTL_TEST_EQ(s.find(int_b, 2u), 3u);

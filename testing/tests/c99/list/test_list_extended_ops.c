@@ -20,10 +20,15 @@ SSTL_FORWARD_LIST_DECLARE(c_ext_forward_list, int, 6)
 SSTL_FORWARD_LIST_DEFINE(c_ext_forward_list, int, 6)
 
 static bool c_is_even(const int* value) { return (*value % 2) == 0; }
+static int c_counting_compare_calls = 0;
 static int c_int_compare(const void* a, const void* b) {
   const int* left = (const int*)a;
   const int* right = (const int*)b;
   return (*left > *right) - (*left < *right);
+}
+static int c_counting_int_compare(const void* a, const void* b) {
+  ++c_counting_compare_calls;
+  return c_int_compare(a, b);
 }
 
 static int c_ext_list_value_at(c_ext_list* list, size_t index) {
@@ -77,7 +82,9 @@ static void list_insert_erase_remove_unique_sort_and_merge_work(void) {
   SSTL_C_EQ(c_ext_list_value_at(&left, 1u), 3);
   SSTL_C_ASSERT(c_ext_list_push_back(&right, 2));
   SSTL_C_ASSERT(c_ext_list_push_back(&right, 4));
-  SSTL_C_ASSERT(c_ext_list_merge(&left, &right, c_int_compare));
+  c_counting_compare_calls = 0;
+  SSTL_C_ASSERT(c_ext_list_merge(&left, &right, c_counting_int_compare));
+  SSTL_C_ASSERT(c_counting_compare_calls <= 3);
   SSTL_C_EQ(c_ext_list_size(&right), 0u);
   SSTL_C_EQ(c_ext_list_value_at(&left, 0u), 1);
   SSTL_C_EQ(c_ext_list_value_at(&left, 1u), 2);
@@ -85,6 +92,31 @@ static void list_insert_erase_remove_unique_sort_and_merge_work(void) {
   SSTL_C_EQ(c_ext_list_value_at(&left, 3u), 4);
   c_ext_list_remove(&left, 3);
   SSTL_C_EQ(c_ext_list_size(&left), 3u);
+  sstl_c_noalloc_end();
+}
+
+static void list_splice_one_and_range_work(void) {
+  c_ext_list left;
+  c_ext_list donor;
+  c_ext_list_iterator before_four;
+  sstl_c_noalloc_begin();
+  c_ext_list_init(&left);
+  c_ext_list_init(&donor);
+  SSTL_C_ASSERT(c_ext_list_push_back(&left, 1));
+  SSTL_C_ASSERT(c_ext_list_push_back(&left, 4));
+  SSTL_C_ASSERT(c_ext_list_push_back(&donor, 2));
+  SSTL_C_ASSERT(c_ext_list_push_back(&donor, 3));
+  SSTL_C_ASSERT(c_ext_list_push_back(&donor, 5));
+  before_four = c_ext_list_next(&left, c_ext_list_begin(&left));
+  SSTL_C_ASSERT(c_ext_list_try_splice_one(&left, before_four, &donor, c_ext_list_begin(&donor)));
+  SSTL_C_EQ(c_ext_list_value_at(&left, 0u), 1);
+  SSTL_C_EQ(c_ext_list_value_at(&left, 1u), 2);
+  SSTL_C_EQ(c_ext_list_value_at(&left, 2u), 4);
+  SSTL_C_ASSERT(c_ext_list_splice_range(&left, c_ext_list_end(&left), &donor, c_ext_list_begin(&donor), c_ext_list_end(&donor)));
+  SSTL_C_ASSERT(c_ext_list_empty(&donor));
+  SSTL_C_EQ(c_ext_list_size(&left), 5u);
+  SSTL_C_EQ(c_ext_list_value_at(&left, 3u), 3);
+  SSTL_C_EQ(c_ext_list_value_at(&left, 4u), 5);
   sstl_c_noalloc_end();
 }
 
@@ -181,6 +213,7 @@ static void forward_list_node_iterators_survive_head_mutations(void) {
 int main(void) {
   const sstl_c_test_case tests[] = {
     {"list_insert_erase_remove_unique_sort_and_merge_work", list_insert_erase_remove_unique_sort_and_merge_work},
+    {"list_splice_one_and_range_work", list_splice_one_and_range_work},
     {"list_node_iterators_survive_front_mutations", list_node_iterators_survive_front_mutations},
     {"forward_list_after_position_surface_is_distinct", forward_list_after_position_surface_is_distinct},
     {"forward_list_node_iterators_survive_head_mutations", forward_list_node_iterators_survive_head_mutations}
