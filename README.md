@@ -1,3 +1,5 @@
+**Why this project matters**: SSTL is a constrained C/C++ infrastructure project used as an experiment in AI-assisted SDLC. It combines PRD-driven development, explicit architectural constraints, generated design/code/test artifacts, human review, TDD, guardrail validation, and deterministic memory rules.
+
 # Static-Allocation STL-Like Library (SSTL)
 
 SSTL is a lightweight alternative to the C++ Standard Template Library for C99 and C++03 environments. It provides a family of familiar containers, algorithms, and utilities that operate entirely on statically allocated memory — no calls to `malloc`, `free`, `new`, or `delete` are made at runtime. This makes SSTL suitable for bare-metal microcontrollers, safety-critical systems, and any environment where heap allocation is undesirable or unavailable.
