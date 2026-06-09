@@ -3,7 +3,7 @@
 # Static-Allocation STL-Like Library (SSTL)
 
 [![CI](https://github.com/oandronachi/SSTL/actions/workflows/ci.yml/badge.svg)](https://github.com/oandronachi/SSTL/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/oandronachi/SSTL)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![C99](https://img.shields.io/badge/C-99-555555?logo=c&logoColor=white)](./README.md)
 [![C++03](https://img.shields.io/badge/C%2B%2B-03-00599C?logo=cplusplus&logoColor=white)](./README.md)
 [![Heap-free](https://img.shields.io/badge/heap--free-runtime-2ea44f)](./README.md)
