@@ -3,6 +3,10 @@
 # Static-Allocation STL-Like Library (SSTL)
 
 [![CI](https://github.com/oandronachi/SSTL/actions/workflows/ci.yml/badge.svg)](https://github.com/oandronachi/SSTL/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/oandronachi/SSTL)](./LICENSE)
+[![C99](https://img.shields.io/badge/C-99-555555?logo=c&logoColor=white)](./README.md)
+[![C++03](https://img.shields.io/badge/C%2B%2B-03-00599C?logo=cplusplus&logoColor=white)](./README.md)
+[![Heap-free](https://img.shields.io/badge/heap--free-runtime-2ea44f)](./README.md)
 
 SSTL is a lightweight alternative to the C++ Standard Template Library for C99 and C++03 environments. It provides a family of familiar containers, algorithms, and utilities that operate entirely on statically allocated memory — no calls to `malloc`, `free`, `new`, or `delete` are made at runtime. This makes SSTL suitable for bare-metal microcontrollers, safety-critical systems, and any environment where heap allocation is undesirable or unavailable.
 
