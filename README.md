@@ -2,6 +2,8 @@
 
 # Static-Allocation STL-Like Library (SSTL)
 
+[![CI](https://github.com/oandronachi/SSTL/actions/workflows/ci.yml/badge.svg)](https://github.com/oandronachi/SSTL/actions/workflows/ci.yml)
+
 SSTL is a lightweight alternative to the C++ Standard Template Library for C99 and C++03 environments. It provides a family of familiar containers, algorithms, and utilities that operate entirely on statically allocated memory — no calls to `malloc`, `free`, `new`, or `delete` are made at runtime. This makes SSTL suitable for bare-metal microcontrollers, safety-critical systems, and any environment where heap allocation is undesirable or unavailable.
 
 SSTL was developed as an AI-assisted, human-in-the-loop engineering experiment. The project explores how generative AI can be used to accelerate the design and implementation of constrained C/C++ infrastructure while keeping a human responsible for the concept, constraints, architectural direction, review, and validation.

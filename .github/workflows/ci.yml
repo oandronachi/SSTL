@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v6
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build gcc g++ clang libclang-rt-dev util-linux python3
+
+      - name: Run SSTL tests
+        run: |
+          python3 tools/sstl_run_tests.py \
+            --backend local \
+            --runtime-report \
+            --quick-summary \
+            --timeout 900 \
+            --no-output-timeout 180
